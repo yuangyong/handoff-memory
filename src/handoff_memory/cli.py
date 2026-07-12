@@ -37,6 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
     save.add_argument("path", nargs="?", default=".")
     save.add_argument("--from", dest="source", help="先从 UTF-8 文件读取交接；使用 - 表示标准输入")
     save.add_argument("--allow-sensitive", action="store_true", help="明确允许保存疑似敏感内容（不推荐）")
+    save.add_argument(
+        "--allow-large",
+        action="store_true",
+        help="明确允许保存 64KB 到 256KB 的大型交接",
+    )
 
     resume = subparsers.add_parser("resume", help="输出供新会话读取的恢复上下文")
     resume.add_argument("path", nargs="?", default=".")
@@ -66,7 +71,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "save":
             content = _read_source(args.source) if args.source else None
-            result = archive_active(args.path, content=content, allow_sensitive=args.allow_sensitive)
+            result = archive_active(
+                args.path,
+                content=content,
+                allow_sensitive=args.allow_sensitive,
+                allow_large=args.allow_large,
+            )
             print(f"已保存交接快照：{result.archive_path}")
             for warning in result.warnings:
                 print(f"提示：{warning}")
@@ -106,13 +116,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _read_source(source: str) -> str:
     if source == "-":
-        content = sys.stdin.read(HARD_ACTIVE_LIMIT + 1)
+        try:
+            content = sys.stdin.read(HARD_ACTIVE_LIMIT + 1)
+        except UnicodeError as exc:
+            raise HandoffError("标准输入必须是 UTF-8 文本") from exc
         if len(content.encode("utf-8")) > HARD_ACTIVE_LIMIT:
-            raise HandoffError("标准输入超过 64KB 限制")
+            raise HandoffError("标准输入超过 256KB 限制")
         return content
     path = Path(source).expanduser().resolve()
     if not path.is_file() or path.stat().st_size > HARD_ACTIVE_LIMIT:
-        raise HandoffError(f"交接来源不存在或超过 64KB：{path}")
+        raise HandoffError(f"交接来源不存在或超过 256KB：{path}")
     try:
         return path.read_text(encoding="utf-8")
     except UnicodeError as exc:
@@ -121,6 +134,9 @@ def _read_source(source: str) -> str:
 
 def _configure_utf8_stdio() -> None:
     """统一 Windows 旧代码页与管道场景下的 CLI 输出编码。"""
+    reconfigure_stdin = getattr(sys.stdin, "reconfigure", None)
+    if callable(reconfigure_stdin):
+        reconfigure_stdin(encoding="utf-8", errors="strict")
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):

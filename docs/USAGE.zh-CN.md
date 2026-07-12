@@ -88,7 +88,7 @@ handoff-memory init . --force
 - “关键决策”记录会影响后续实现的选择和理由。
 - “下一步”使用有顺序、可执行的小步骤。
 - 不粘贴大段日志、聊天全文、密钥或环境变量。
-- 推荐保持在 2–8KB；超过 16KB 会提示，超过 64KB 会拒绝保存。
+- 推荐保持在 2–8KB；超过 16KB 会提示精炼，超过 64KB 需要显式确认，超过 256KB 会拒绝处理。
 - “当前目标”和“下一步”的初始占位说明必须替换为实际内容；其他章节确实无内容时，可以如实写“尚未记录”或“尚未执行”。
 
 ## 6. 保存快照
@@ -114,6 +114,15 @@ Get-Content -Raw D:\temp\handoff.md | handoff-memory save . --from -
 ```
 
 如果发现疑似密钥，命令返回状态码 `2`，只报告类型和行号。应优先删除敏感信息。`--allow-sensitive` 仅用于确认是误报的本地场景。
+
+交接超过 64KB 时应优先删除日志、完整 diff 和重复背景。如果确认这些内容仍是接续任务所必需，可以显式保存：
+
+```powershell
+handoff-memory save . --allow-large
+handoff-memory save . --from D:\temp\handoff.md --allow-large
+```
+
+`--allow-large` 只放宽 64–256KB 的质量边界，不会绕过 256KB 绝对上限，也不会绕过敏感信息检查。
 
 即使敏感内容是绕过 CLI 手工写入的，`resume` 也会拒绝输出全文，直到 `ACTIVE.md` 被清理。
 
@@ -144,7 +153,7 @@ JSON 顶层字段包括：
 - `last_saved_at`
 - `warnings`
 
-Markdown 恢复输出会先显示安全提示、上次保存时间和 Git/SVN 漂移，再显示 `ACTIVE.md`。交接超过 7 天时会提示优先核验任务是否仍然有效。
+Markdown 恢复输出会先显示安全提示、上次保存时间和 Git/SVN 漂移，再显示 `ACTIVE.md`。交接超过 7 天时会提示优先核验任务是否仍然有效。对于 64–256KB 的大型交接，`resume` 不会阻断接续，但会在正文前提示它将占用较多上下文；超过 256KB 才会拒绝输出。
 
 恢复后 AI 必须先确认：
 

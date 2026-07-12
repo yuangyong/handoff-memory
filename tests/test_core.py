@@ -91,12 +91,15 @@ class CoreFlowTests(unittest.TestCase):
 
             self.assertTrue(result.archive_path.exists())
 
-    def test_active_document_warns_above_16kb_and_rejects_above_64kb(self) -> None:
+    def test_active_document_uses_tiered_size_limits(self) -> None:
         medium = valid_handoff().replace("实现恢复流程。", "A" * 17_000)
-        oversized = valid_handoff().replace("实现恢复流程。", "A" * 66_000)
+        large = valid_handoff().replace("实现恢复流程。", "A" * 66_000)
+        oversized = valid_handoff().replace("实现恢复流程。", "A" * 263_000)
 
         self.assertTrue(any("16KB" in warning for warning in warn_active(medium)))
-        self.assertTrue(any("64KB" in error for error in validate_active(oversized)))
+        self.assertTrue(any("64KB" in warning for warning in warn_active(large)))
+        self.assertFalse(validate_active(large))
+        self.assertTrue(any("256KB" in error for error in validate_active(oversized)))
 
     def test_save_returns_quality_warnings_for_long_handoff(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -108,6 +111,20 @@ class CoreFlowTests(unittest.TestCase):
             result = archive_active(project)
 
             self.assertTrue(any("16KB" in warning for warning in result.warnings))
+
+    def test_save_requires_explicit_confirmation_above_64kb(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="大型交接示例")
+            content = valid_handoff().replace("实现恢复流程。", "A" * 66_000)
+
+            with self.assertRaisesRegex(HandoffError, "allow-large"):
+                archive_active(project, content=content)
+
+            result = archive_active(project, content=content, allow_large=True)
+
+            self.assertTrue(result.archive_path.exists())
+            self.assertTrue(any("64KB" in warning for warning in result.warnings))
 
     def test_save_rejects_likely_secret_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -187,17 +204,29 @@ class CoreFlowTests(unittest.TestCase):
 
             self.assertNotIn("x" * 32, str(raised.exception))
 
-    def test_resume_refuses_oversized_active_document(self) -> None:
+    def test_resume_allows_large_active_document_with_warning(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
-            initialize_project(project, name="超限示例")
+            initialize_project(project, name="大型交接示例")
             content = valid_handoff().replace("实现恢复流程。", "A" * 66_000)
+            (project / ".ai-memory/ACTIVE.md").write_text(content, encoding="utf-8")
+
+            output = render_resume(inspect_project(project), output_format="markdown")
+
+            self.assertIn("A" * 66_000, output)
+            self.assertLess(output.index("超过 64KB"), output.index("## 当前任务交接"))
+
+    def test_resume_refuses_active_document_above_256kb(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="绝对超限示例")
+            content = valid_handoff().replace("实现恢复流程。", "A" * 263_000)
             (project / ".ai-memory/ACTIVE.md").write_text(content, encoding="utf-8")
 
             with self.assertRaises(HandoffError) as raised:
                 render_resume(inspect_project(project), output_format="markdown")
 
-            self.assertIn("64KB", str(raised.exception))
+            self.assertIn("256KB", str(raised.exception))
 
     @unittest.skipUnless(shutil.which("git"), "当前环境未安装 Git")
     def test_resume_detects_commit_drift_in_real_git_repository(self) -> None:

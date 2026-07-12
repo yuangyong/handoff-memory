@@ -17,7 +17,8 @@ from .templates import REQUIRED_SECTIONS, active_template
 
 
 SOFT_ACTIVE_LIMIT = 16 * 1024
-HARD_ACTIVE_LIMIT = 64 * 1024
+LARGE_ACTIVE_LIMIT = 64 * 1024
+HARD_ACTIVE_LIMIT = 256 * 1024
 _REQUIRED_PLACEHOLDERS = {
     "当前目标": "说明本轮正在解决的问题、期望结果和范围。",
     "下一步": "补充当前任务。",
@@ -114,7 +115,7 @@ def validate_active(content: str) -> list[str]:
     """校验活动交接是否包含稳定的固定章节。"""
     errors: list[str] = []
     if len(content.encode("utf-8")) > HARD_ACTIVE_LIMIT:
-        errors.append("ACTIVE.md 超过 64KB，请提炼事实而不是保存聊天全文")
+        errors.append("ACTIVE.md 超过 256KB，请删除误粘贴的日志、diff 或聊天全文")
     headings = set(re.findall(r"^##\s+(.+?)\s*$", content, flags=re.MULTILINE))
     missing = [section for section in REQUIRED_SECTIONS if section not in headings]
     errors.extend(f"缺少必需章节：{section}" for section in missing)
@@ -135,7 +136,10 @@ def validate_active(content: str) -> list[str]:
 
 def warn_active(content: str) -> list[str]:
     """返回不阻止保存的交接质量提示。"""
-    if len(content.encode("utf-8")) > SOFT_ACTIVE_LIMIT:
+    size = len(content.encode("utf-8"))
+    if size > LARGE_ACTIVE_LIMIT:
+        return ["ACTIVE.md 超过 64KB，将占用较多新会话上下文，建议尽快精炼"]
+    if size > SOFT_ACTIVE_LIMIT:
         return ["ACTIVE.md 超过 16KB，建议删除日志、完整 diff 和重复背景"]
     return []
 
@@ -145,6 +149,7 @@ def archive_active(
     *,
     content: str | None = None,
     allow_sensitive: bool = False,
+    allow_large: bool = False,
 ) -> ArchiveResult:
     """校验活动交接，采集当前版本库状态并生成历史快照。"""
     project = resolve_project(path)
@@ -154,6 +159,10 @@ def archive_active(
     errors = validate_active(active)
     if errors:
         raise HandoffError("；".join(errors))
+    if len(active.encode("utf-8")) > LARGE_ACTIVE_LIMIT and not allow_large:
+        raise HandoffError(
+            "ACTIVE.md 超过 64KB；请先精炼，或确认确有必要后使用 --allow-large"
+        )
     findings = find_secrets(active)
     if findings and not allow_sensitive:
         locations = "、".join(f"{item.kind}（第 {item.line} 行）" for item in findings)
@@ -209,7 +218,7 @@ def inspect_project(path: Path | str) -> ProjectReport:
 def render_resume(report: ProjectReport, *, output_format: str = "markdown") -> str:
     """输出适合新 AI 会话读取的 Markdown 或稳定 JSON。"""
     if len(report.active.encode("utf-8")) > HARD_ACTIVE_LIMIT:
-        raise HandoffError("ACTIVE.md 超过 64KB，已拒绝输出；请先提炼交接内容")
+        raise HandoffError("ACTIVE.md 超过 256KB，已拒绝输出；请先删除冗余内容")
     if report.secret_findings:
         locations = "、".join(
             f"{item.kind}（第 {item.line} 行）" for item in report.secret_findings
