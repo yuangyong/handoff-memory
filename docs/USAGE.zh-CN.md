@@ -30,6 +30,8 @@ svn --version
 
 ```powershell
 pipx install .
+# 或
+uv tool install .
 ```
 
 更新本地开发版本：
@@ -43,6 +45,30 @@ python -m pip install -e .
 ```powershell
 $env:PYTHONPATH = "D:\path\to\handoff-memory\src"
 python -m handoff_memory --help
+```
+
+### 升级
+
+拉取最新源码后在 Handoff Memory 仓库根目录执行：
+
+```powershell
+pipx install . --force
+# 或
+uv tool install . --force
+```
+
+开发模式安装（`pip install -e .`）的代码改动会自动生效，一般不需要重新执行。但如果更新涉及 `pyproject.toml` 中的入口点或元数据变更，应重新运行 `pip install -e .`。
+
+### 升级后对已有项目的影响
+
+- **记忆目录**：不需要重新 `init`，已有的 `.ai-memory/ACTIVE.md` 和历史快照不受影响。
+- **规则与 Skill**：如果新版本更新了模板内容（如修复了规则措辞或新增了 Skill 步骤），对已接入的项目重新执行 `integrate` 即可刷新。命令只替换 `<!-- handoff-memory:start/end -->` 受管区块，保留区块外的用户自定义内容。
+- **命令兼容性**：`save` 和 `resume` 的 JSON 输出包含 `schema_version`，新版本会保持向后兼容。
+
+```powershell
+# 升级后刷新某个项目的 Antigravity IDE 规则与 Skill
+cd D:\your-project
+handoff-memory integrate antigravity .
 ```
 
 安装后可使用独立帮助命令。未指定主题时显示总体说明，指定命令时显示参数、默认行为和示例：
@@ -75,7 +101,7 @@ handoff-memory init D:\project\demo --name "Demo" --select-tools
 handoff-memory init D:\project\demo --name "Demo" --integrate codex
 ```
 
-将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。`all` 会生成全部已支持适配文件，只适合确实同时使用多个 AI 工具的项目。
+将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、Antigravity IDE、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。`all` 会生成全部已支持适配文件，只适合确实同时使用多个 AI 工具的项目。
 
 所有具名目标都会生成对应项目级 `session-handoff` Skill。`codex` 或 `opencode` 默认不会处理 `AGENTS.md`；需要常驻自动提醒时增加 `--with-agents-rule`，届时不存在则创建，已有文件则保留原内容并追加受管路由。
 

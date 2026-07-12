@@ -2,6 +2,15 @@
 
 本项目遵循语义化版本。
 
+## [0.9.0] - 2026-07-12
+
+### 新增
+
+- 新增 Antigravity IDE 适配（`handoff-memory integrate antigravity .`）。
+- Antigravity IDE 的轻量规则写入 `.agents/rules/handoff-memory.md`，Skill 写入 `.agents/skills/session-handoff/SKILL.md`。
+- Skill 路径与 Codex 共享 `.agents/skills/`，同时接入时只保留一份 Skill 文件，互不冲突。
+- 具名 AI 编程客户端数量从 11 个增至 12 个。
+
 ## [0.8.0] - 2026-07-12
 
 ### 改进

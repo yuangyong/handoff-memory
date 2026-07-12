@@ -9,7 +9,7 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 ## 特性
 
 - 本地优先：默认不联网、不上传、不调用 LLM。
-- 跨工具：内置 11 个主流 AI 编程客户端的项目规则与原生项目级 Skill 适配。
+- 跨工具：内置 12 个主流 AI 编程客户端的项目规则与原生项目级 Skill 适配。
 - 可审计：活动交接和历史快照都是 UTF-8 Markdown。
 - 可核验：自动识别 Git/SVN，恢复时重新采集分支或仓库位置、HEAD 或修订号以及工作区状态。
 - 安全默认：阻止常见 API Key、访问令牌和私钥进入快照。
@@ -34,6 +34,16 @@ uv tool install .
 handoff-memory --version
 handoff-memory help
 ```
+
+升级到新版本：
+
+```powershell
+pipx install . --force
+# 或
+uv tool install . --force
+```
+
+升级后已初始化的项目不需要重新 `init`。如果新版本更新了规则或 Skill 模板，对需要刷新的项目重新执行 `integrate` 即可；受管区块外的用户内容不会被覆盖。
 
 开发模式：
 
@@ -74,7 +84,7 @@ handoff-memory init . --name "你的项目" --integrate codex --with-agents-rule
 每个具名目标都会生成原生项目级 `session-handoff` Skill；具有独立规则文件的客户端还会同时生成规则。Codex 和 OpenCode 默认不读取或修改 `AGENTS.md`；只有指定 `--with-agents-rule` 时，才会创建该文件，或保留已有内容并追加一条按需调用 Skill 的简短规则。具名客户端包括：
 
 ```text
-codex | claude | cursor | gemini | copilot | windsurf
+codex | claude | cursor | gemini | antigravity | copilot | windsurf
 cline | kiro | trae | qoder | opencode
 ```
 

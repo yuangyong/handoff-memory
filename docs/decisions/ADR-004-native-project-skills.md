@@ -12,7 +12,7 @@
 
 Handoff Memory 的规则文件只适合提供轻量提醒，完整的保存、恢复、安全检查和版本库核验流程位于 `session-handoff` Skill。如果某个客户端接入只生成规则，没有把 Skill 放入它能自动发现的项目目录，AI 仍需要靠规则重新解释流程，接入是不完整的。
 
-当前 11 个具名客户端都已公开项目级 Agent Skills 目录，但目录名称并不统一。
+当前 12 个具名客户端都已公开项目级 Agent Skills 目录，但目录名称并不统一。Antigravity IDE 与 Codex 都使用 `.agents/skills`，其工作区规则则位于 `.agents/rules`。
 
 ## 决策
 

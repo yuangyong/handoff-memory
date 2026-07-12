@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -8,6 +9,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
+from handoff_memory import __version__
 from handoff_memory.cli import main
 from tests.test_core import valid_handoff
 
@@ -50,10 +52,21 @@ class CliTests(unittest.TestCase):
         self.assertIn("OpenCode", content)
         self.assertIn(".opencode/skills/session-handoff/SKILL.md", content)
         self.assertIn(".cursor/skills/session-handoff/SKILL.md", content)
+        self.assertIn(".agents/rules/handoff-memory.md", content)
+        self.assertIn("Antigravity IDE", content)
         self.assertIn(".trae/skills/session-handoff/SKILL.md", content)
         self.assertIn("TRAE", content)
         self.assertIn(".trae/rules/project_rules.md", content)
         self.assertNotIn("Roo Code", content)
+
+    def test_package_version_matches_pyproject(self) -> None:
+        pyproject = (Path(__file__).parents[1] / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+        match = re.search(r'^version = "([^"]+)"$', pyproject, re.MULTILINE)
+
+        self.assertIsNotNone(match)
+        self.assertEqual(__version__, match.group(1))
 
     def test_help_output_is_utf8_in_subprocess(self) -> None:
         environment = os.environ.copy()
@@ -130,7 +143,7 @@ class CliTests(unittest.TestCase):
             project = Path(directory)
             output = io.StringIO()
 
-            with patch("builtins.input", return_value="1,3,5"), redirect_stdout(output):
+            with patch("builtins.input", return_value="1,3,6"), redirect_stdout(output):
                 code = main(["init", str(project), "--select-tools"])
 
             self.assertEqual(code, 0)

@@ -18,6 +18,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             "claude",
             "cursor",
             "gemini",
+            "antigravity",
             "copilot",
             "windsurf",
             "cline",
@@ -57,6 +58,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             "claude": ".claude/skills/session-handoff/SKILL.md",
             "cursor": ".cursor/skills/session-handoff/SKILL.md",
             "gemini": ".gemini/skills/session-handoff/SKILL.md",
+            "antigravity": ".agents/skills/session-handoff/SKILL.md",
             "copilot": ".github/skills/session-handoff/SKILL.md",
             "windsurf": ".windsurf/skills/session-handoff/SKILL.md",
             "cline": ".cline/skills/session-handoff/SKILL.md",
@@ -67,10 +69,11 @@ class IntegrationTemplateTests(unittest.TestCase):
         }
 
         self.assertEqual(PROJECT_SKILL_PATHS, expected_paths)
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
-            for target, relative_path in expected_paths.items():
-                with self.subTest(target=target):
+        # 每个目标使用独立目录，避免共享路径（如 codex 和 antigravity）导致的幂等干扰
+        for target, relative_path in expected_paths.items():
+            with self.subTest(target=target):
+                with tempfile.TemporaryDirectory() as directory:
+                    project = Path(directory)
                     changed = integrate(project, target)
                     skill = project / relative_path
                     self.assertIn(skill, changed)
@@ -117,6 +120,56 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertTrue(agents.is_file())
             self.assertIn("使用 `session-handoff` Skill", agents.read_text(encoding="utf-8"))
             self.assertEqual(len(changed), 2)
+
+    def test_antigravity_creates_workspace_rule_and_project_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            changed = integrate(project, "antigravity")
+
+            rule = project / ".agents/rules/handoff-memory.md"
+            skill = project / ".agents/skills/session-handoff/SKILL.md"
+            self.assertTrue(rule.is_file())
+            self.assertTrue(skill.is_file())
+            rule_content = rule.read_text(encoding="utf-8")
+            self.assertIn("handoff-memory:start", rule_content)
+            self.assertIn("使用 `session-handoff` Skill", rule_content)
+            self.assertNotIn("handoff-memory resume", rule_content)
+            self.assertEqual(skill.read_text(encoding="utf-8"), SKILL_TEMPLATE)
+            self.assertEqual(len(changed), 2)
+            # 幂等性：再次执行不应产生变更
+            self.assertEqual(integrate(project, "antigravity"), [])
+
+    def test_antigravity_preserves_existing_workspace_rule_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            rule = project / ".agents/rules/handoff-memory.md"
+            rule.parent.mkdir(parents=True, exist_ok=True)
+            rule.write_text("# 用户自定义规则\n", encoding="utf-8")
+
+            integrate(project, "antigravity")
+
+            content = rule.read_text(encoding="utf-8")
+            self.assertIn("用户自定义规则", content)
+            self.assertEqual(content.count("handoff-memory:start"), 1)
+
+    def test_antigravity_does_not_touch_agents_md_files(self) -> None:
+        """Antigravity 使用 .agents/rules，不应修改 AGENTS.md。"""
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            root_agents = project / "AGENTS.md"
+            nested_agents = project / ".agents/AGENTS.md"
+            root_agents.write_text("# Codex 规则\n", encoding="utf-8")
+            nested_agents.parent.mkdir(parents=True, exist_ok=True)
+            nested_agents.write_text("# 其他工具规则\n", encoding="utf-8")
+
+            integrate(project, "antigravity")
+
+            self.assertEqual(root_agents.read_text(encoding="utf-8"), "# Codex 规则\n")
+            self.assertEqual(
+                nested_agents.read_text(encoding="utf-8"), "# 其他工具规则\n"
+            )
+            self.assertTrue((project / ".agents/rules/handoff-memory.md").is_file())
 
     def test_opencode_creates_project_skill_and_only_adds_agents_rule_explicitly(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -172,7 +225,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             changed = integrate(project, "all", with_agents_rule=True)
 
             self.assertTrue((project / "AGENTS.md").is_file())
-            self.assertEqual(len(changed), 22)
+            self.assertEqual(len(changed), 23)
 
     def test_cursor_integration_preserves_existing_rule_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -219,7 +272,9 @@ class IntegrationTemplateTests(unittest.TestCase):
             )
             for relative_path in PROJECT_SKILL_PATHS.values():
                 self.assertTrue((project / relative_path).is_file())
-            self.assertEqual(len(changed), 21)
+            # antigravity 的 Skill 和 codex 共享 .agents/skills/ 路径，
+            # 规则写入 .agents/rules/handoff-memory.md，共 22 个独立文件变更
+            self.assertEqual(len(changed), 22)
 
             unchanged = integrate(project, "all")
             self.assertEqual(unchanged, [])

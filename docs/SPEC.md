@@ -24,7 +24,7 @@ handoff-memory check [PATH]
 handoff-memory integrate TARGET [PATH] [--with-agents-rule]
 ```
 
-具名 AI 工具 `TARGET`：`codex`、`claude`、`cursor`、`gemini`、`copilot`、`windsurf`、`cline`、`kiro`、`trae`、`qoder`、`opencode`。另有 `generic`、`skill`、`all`。
+具名 AI 工具 `TARGET`：`codex`、`claude`、`cursor`、`gemini`、`antigravity`、`copilot`、`windsurf`、`cline`、`kiro`、`trae`、`qoder`、`opencode`。另有 `generic`、`skill`、`all`。
 
 `help` 与每个命令的 `-h/--help` 都必须可用，并包含中文用途、参数说明和示例。`--select-tools` 显式开启零依赖交互多选；直接回车跳过工具接入，`all` 选择全部具名客户端。它与 `--integrate` 互斥，非交互脚本继续使用 `--integrate TARGET`。
 
@@ -109,7 +109,7 @@ def resolve_project(path: Path) -> Path:
 - 未填写的初始模板不能被保存为有效交接。
 - 正常交接保持紧凑：16KB 以上提示，64KB 以上默认拒绝保存但允许显式确认，256KB 以上保存和恢复均拒绝。
 - 新会话调用 `resume` 可获得交接内容及当前 Git/SVN 漂移信息。
-- 11 个具名客户端均能生成原生项目级 Skill 和适用的规则，且重复执行不会重复插入内容。
+- 12 个具名客户端均能生成原生项目级 Skill 和适用的规则，且重复执行不会重复插入内容。
 - Windows、macOS、Linux 上均不需要运行期第三方依赖。
 - 单元测试以及临时 Git、SVN 仓库端到端测试全部通过。
 - README 与中文使用说明覆盖安装、接入、保存、恢复、安全和故障处理。

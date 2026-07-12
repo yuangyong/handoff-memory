@@ -53,6 +53,14 @@ handoff-memory integrate gemini .
 
 更新 `GEMINI.md`，并根据 [Gemini CLI Agent Skills](https://geminicli.com/docs/cli/using-agent-skills/) 创建 `.gemini/skills/session-handoff/SKILL.md`。
 
+## Antigravity IDE
+
+```powershell
+handoff-memory integrate antigravity .
+```
+
+根据 [Antigravity IDE Rules](https://antigravity.google/docs/ide-rules) 创建轻量规则 `.agents/rules/handoff-memory.md`，并根据 [Antigravity IDE Agent Skills](https://antigravity.google/docs/skills?app=antigravity-ide) 创建 `.agents/skills/session-handoff/SKILL.md`。Skill 路径与 Codex 共享，因此同时接入两者时只保留一份 Skill 文件。
+
 ## GitHub Copilot
 
 ```powershell

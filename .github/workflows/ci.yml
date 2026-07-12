@@ -53,7 +53,9 @@ jobs:
           handoff-memory integrate codex "$project" --with-agents-rule
           test -f "$project/AGENTS.md"
           interactive_project="${RUNNER_TEMP}/handoff-interactive"
-          printf '5,9,10,11\n' | handoff-memory init "$interactive_project" --select-tools
+          printf 'all\n' | handoff-memory init "$interactive_project" --select-tools
+          test -f "$interactive_project/.agents/rules/handoff-memory.md"
+          test -f "$interactive_project/.agents/skills/session-handoff/SKILL.md"
           test -f "$interactive_project/.github/copilot-instructions.md"
           test -f "$interactive_project/.github/skills/session-handoff/SKILL.md"
           test -f "$interactive_project/.trae/rules/project_rules.md"

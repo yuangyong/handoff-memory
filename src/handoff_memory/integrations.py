@@ -20,6 +20,7 @@ AI_TOOL_TARGETS = (
     "claude",
     "cursor",
     "gemini",
+    "antigravity",
     "copilot",
     "windsurf",
     "cline",
@@ -33,6 +34,7 @@ PROJECT_SKILL_PATHS = {
     "claude": ".claude/skills/session-handoff/SKILL.md",
     "cursor": ".cursor/skills/session-handoff/SKILL.md",
     "gemini": ".gemini/skills/session-handoff/SKILL.md",
+    "antigravity": ".agents/skills/session-handoff/SKILL.md",
     "copilot": ".github/skills/session-handoff/SKILL.md",
     "windsurf": ".windsurf/skills/session-handoff/SKILL.md",
     "cline": ".cline/skills/session-handoff/SKILL.md",
@@ -141,6 +143,15 @@ def _adapters(
             project,
             target,
             (project / ".qoder/rules/handoff-memory.md", GENERIC_RULE + "\n"),
+        )
+    if target == "antigravity":
+        return _with_project_skill(
+            project,
+            target,
+            (
+                project / ".agents/rules/handoff-memory.md",
+                AGENTS_ROUTING_RULE + "\n",
+            ),
         )
     if target == "opencode":
         adapters = list(_with_project_skill(project, target))
