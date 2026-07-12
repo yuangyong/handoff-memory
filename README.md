@@ -2,7 +2,7 @@
 
 本地优先、跨 AI 工具的会话交接记忆 CLI。
 
-Handoff Memory 解决的不是“让模型记住一切”，而是一个更可验证的问题：**让下一次 AI 会话准确知道有持续目标的任务做到哪里，并用当前产物、依据以及可用的仓库状态核验旧摘要。**纯闲聊通常不需要交接。
+Handoff Memory 解决的不是“让模型记住一切”，而是一个更可验证的问题：**让下一次 AI 会话准确知道一项持续任务进行到哪里，并用当前产物、依据以及可用的仓库状态核验交接内容**。纯闲聊通常不需要交接。
 
 它不绑定模型、云服务或向量数据库。数据就是项目中的 Markdown，任何 AI、编辑器和人都能读取。
 
@@ -144,7 +144,7 @@ hmem resume . --format json
 
 执行 `hmem init --help` 可查看初始化参数，或用 `hmem init . --select-tools` 交互选择客户端。
 
-完整说明见[中文使用指南](docs/USAGE.zh-CN.md)和[跨工具接入说明](docs/INTEGRATIONS.md)。
+完整说明见[中文使用指南](docs/USAGE.zh-CN.md)、[价值与恢复方式对照](docs/VALUE.md)和[跨工具接入说明](docs/INTEGRATIONS.md)。
 
 ## 推荐工作流
 
