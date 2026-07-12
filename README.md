@@ -38,29 +38,24 @@ python -m pip install -e .
 
 ```powershell
 cd D:\path\to\your-project
-handoff-memory init . --name "你的项目" --integrate all
+handoff-memory init . --name "你的项目" --integrate codex
 ```
+
+把 `codex` 换成正在使用的 `claude`、`cursor`、`gemini`、`generic` 或 `skill`。只有确实同时使用多个客户端时才选择 `all`。
 
 这会创建：
 
 ```text
 .ai-memory/
 ├── ACTIVE.md       # 当前任务唯一活动交接入口
-├── PROJECT.md      # 稳定的长期项目背景
-├── DECISIONS.md    # 跨任务仍有效的决策
 ├── config.json     # 机器可读配置与上次保存信息
 └── sessions/       # 只增不改的历史快照
 ```
 
-并按需生成：
+同时只生成所选 AI 工具的接入规则，例如 Codex 使用 `AGENTS.md`。支持的目标包括：
 
 ```text
-AGENTS.md                              # Codex
-CLAUDE.md                              # Claude Code
-GEMINI.md                              # Gemini CLI
-.cursor/rules/handoff-memory.mdc       # Cursor
-AI-HANDOFF.md                          # 通用 AI
-.agents/skills/session-handoff/SKILL.md
+codex | claude | cursor | gemini | generic | skill | all
 ```
 
 ### 保存当前会话
@@ -116,11 +111,13 @@ handoff-memory resume . --format json
   └─ resume：读取 ACTIVE + 核对当前 Git/SVN
        └─ 执行任务
             ├─ 里程碑：更新 ACTIVE + save
-            ├─ 关键决策：更新 DECISIONS + save
+            ├─ 关键决策：更新 ACTIVE + save
             └─ 会话结束：更新 ACTIVE + save
 ```
 
 不要只依赖客户端正常退出。窗口关闭、网络错误或上下文压缩都可能导致结束钩子没有机会运行，因此里程碑快照比“退出时自动总结”更可靠。
+
+`save` 会拒绝未填写的模板和超过 64KB 的交接；超过 16KB 会提示继续精炼。推荐把 `ACTIVE.md` 控制在 2–8KB，只记录当前目标、已完成、关键决策、验证、风险和下一步。
 
 ## Git 与 SVN
 
@@ -147,7 +144,7 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 ## 设计原则
 
 - 当前代码、版本库状态和测试是事实源，交接文件只是恢复索引。
-- 活动状态与长期背景分离，避免每次把全部历史塞进上下文。
+- `ACTIVE.md` 只保留当前任务事实，避免把长期资料和聊天历史塞进上下文。
 - 首版不提供向量检索；历史量真正变大后再增加可选索引层。
 - 公共 CLI 采用向后兼容扩展，稳定 JSON 输出包含 `schema_version`。
 

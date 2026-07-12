@@ -53,11 +53,13 @@ python -m handoff_memory --help
 handoff-memory init D:\project\demo --name "Demo"
 ```
 
-同时安装全部规则：
+同时安装指定客户端规则：
 
 ```powershell
-handoff-memory init D:\project\demo --name "Demo" --integrate all
+handoff-memory init D:\project\demo --name "Demo" --integrate codex
 ```
+
+将 `codex` 替换为当前使用的客户端。`all` 会生成六种适配文件，只适合确实同时使用多个 AI 工具的项目。
 
 默认不会覆盖已有文件。只有明确确认 Handoff Memory 自有初始化内容可以重置时才使用：
 
@@ -86,6 +88,8 @@ handoff-memory init . --force
 - “关键决策”记录会影响后续实现的选择和理由。
 - “下一步”使用有顺序、可执行的小步骤。
 - 不粘贴大段日志、聊天全文、密钥或环境变量。
+- 推荐保持在 2–8KB；超过 16KB 会提示，超过 64KB 会拒绝保存。
+- “当前目标”和“下一步”的初始占位说明必须替换为实际内容；其他章节确实无内容时，可以如实写“尚未记录”或“尚未执行”。
 
 ## 6. 保存快照
 
@@ -137,6 +141,10 @@ JSON 顶层字段包括：
 - `validation_errors`
 - `sensitive_findings`
 - `last_archive`
+- `last_saved_at`
+- `warnings`
+
+Markdown 恢复输出会先显示安全提示、上次保存时间和 Git/SVN 漂移，再显示 `ACTIVE.md`。交接超过 7 天时会提示优先核验任务是否仍然有效。
 
 恢复后 AI 必须先确认：
 
@@ -160,8 +168,6 @@ handoff-memory check .
 
 ```text
 .ai-memory/ACTIVE.md
-.ai-memory/PROJECT.md
-.ai-memory/DECISIONS.md
 .ai-memory/config.json
 .ai-memory/sessions/
 ```
@@ -181,7 +187,7 @@ svn propset svn:ignore ".ai-memory" .
 svn commit -m "chore: 忽略本地 AI 交接目录"
 ```
 
-也可以混合使用：纳管 `PROJECT.md` 与 `DECISIONS.md`，忽略 `ACTIVE.md` 和 `sessions/`。选择取决于交接内容是否属于团队知识。
+也可以只纳管 `ACTIVE.md` 与 `config.json`，忽略 `sessions/`。选择取决于交接内容是否属于团队知识。
 
 ## 10. 故障处理
 
@@ -217,7 +223,7 @@ Handoff Memory 按 UTF-8 读取 Git 输出，并使用 SVN XML 接口避免本�
 
 ```powershell
 cd D:\path\to\svn-working-copy
-handoff-memory init . --name "SVN 项目" --integrate all
+handoff-memory init . --name "SVN 项目" --integrate codex
 handoff-memory save .
 handoff-memory resume .
 ```

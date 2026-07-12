@@ -50,21 +50,6 @@ def active_template(project_name: str) -> str:
 """
 
 
-def project_template(project_name: str) -> str:
-    return f"""# {project_name}：长期项目背景
-
-这里记录跨任务稳定的信息，例如项目目标、架构入口、构建命令和长期约束。
-
-不要在此记录临时进度、密钥或可从代码直接推导的大段内容。
-"""
-
-
-DECISIONS_TEMPLATE = """# 长期决策
-
-记录仍然有效、会影响未来工作的决策。决策变化时追加新条目并注明替代关系，不要静默删除历史原因。
-"""
-
-
 GENERIC_RULE = """<!-- handoff-memory:start -->
 ## 跨会话交接规则
 
@@ -89,12 +74,13 @@ name: session-handoff
 description: 保存或恢复当前项目的跨会话任务状态。当用户要求保存会话、生成交接、恢复上次任务、继续之前工作，或会话即将结束时使用。
 ---
 
+<!-- handoff-memory:start -->
 # Session Handoff
 
 ## 恢复
 
 1. 运行 `handoff-memory resume .`。
-2. 阅读输出以及 `.ai-memory/ACTIVE.md`。必要时再阅读 `PROJECT.md` 和 `DECISIONS.md`。
+2. 阅读输出以及 `.ai-memory/ACTIVE.md`。
 3. 根据项目运行 `git status` 或 `svn status`，检查当前提交/修订号和相关文件，识别交接信息与工作区的漂移。
 4. 向用户给出简短恢复说明后，从“下一步”继续；不要未经检查执行旧命令。
 
@@ -109,4 +95,5 @@ description: 保存或恢复当前项目的跨会话任务状态。当用户要�
 ## 阶段检查点
 
 完成重要里程碑或会话上下文变长时也执行保存，不依赖客户端正常退出。
+<!-- handoff-memory:end -->
 """

@@ -8,7 +8,14 @@ from pathlib import Path
 from typing import Sequence
 
 from . import __version__
-from .core import HandoffError, archive_active, initialize_project, inspect_project, render_resume
+from .core import (
+    HARD_ACTIVE_LIMIT,
+    HandoffError,
+    archive_active,
+    initialize_project,
+    inspect_project,
+    render_resume,
+)
 from .integrations import TARGETS, integrate
 
 
@@ -61,6 +68,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             content = _read_source(args.source) if args.source else None
             result = archive_active(args.path, content=content, allow_sensitive=args.allow_sensitive)
             print(f"已保存交接快照：{result.archive_path}")
+            for warning in result.warnings:
+                print(f"提示：{warning}")
             return 0
         if args.command == "resume":
             print(render_resume(inspect_project(args.path), output_format=args.format), end="")
@@ -74,6 +83,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for problem in problems:
                     print(f"- {problem}", file=sys.stderr)
                 return 2
+            for warning in report.quality_warnings:
+                print(f"提示：{warning}")
             print("检查通过：记忆格式有效，未发现高置信度敏感信息。")
             return 0
         if args.command == "integrate":
@@ -95,13 +106,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _read_source(source: str) -> str:
     if source == "-":
-        content = sys.stdin.read(1_000_001)
-        if len(content.encode("utf-8")) > 1_000_000:
-            raise HandoffError("标准输入超过 1 MB 限制")
+        content = sys.stdin.read(HARD_ACTIVE_LIMIT + 1)
+        if len(content.encode("utf-8")) > HARD_ACTIVE_LIMIT:
+            raise HandoffError("标准输入超过 64KB 限制")
         return content
     path = Path(source).expanduser().resolve()
-    if not path.is_file() or path.stat().st_size > 1_000_000:
-        raise HandoffError(f"交接来源不存在或超过 1 MB：{path}")
+    if not path.is_file() or path.stat().st_size > HARD_ACTIVE_LIMIT:
+        raise HandoffError(f"交接来源不存在或超过 64KB：{path}")
     try:
         return path.read_text(encoding="utf-8")
     except UnicodeError as exc:

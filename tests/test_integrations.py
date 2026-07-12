@@ -20,6 +20,32 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertIn("# 原有规则", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
+    def test_cursor_integration_preserves_existing_rule_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            cursor_rule = project / ".cursor/rules/handoff-memory.mdc"
+            cursor_rule.parent.mkdir(parents=True)
+            cursor_rule.write_text("---\nalwaysApply: true\n---\n\n用户自定义规则\n", encoding="utf-8")
+
+            integrate(project, "cursor")
+
+            content = cursor_rule.read_text(encoding="utf-8")
+            self.assertIn("用户自定义规则", content)
+            self.assertEqual(content.count("handoff-memory:start"), 1)
+
+    def test_skill_integration_preserves_existing_skill_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            skill = project / ".agents/skills/session-handoff/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("---\nname: session-handoff\n---\n\n用户自定义说明\n", encoding="utf-8")
+
+            integrate(project, "skill")
+
+            content = skill.read_text(encoding="utf-8")
+            self.assertIn("用户自定义说明", content)
+            self.assertEqual(content.count("handoff-memory:start"), 1)
+
     def test_all_integration_creates_every_supported_adapter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
