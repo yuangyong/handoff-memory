@@ -62,13 +62,15 @@ uv tool install . --force
 ### 升级后对已有项目的影响
 
 - **记忆目录**：不需要重新 `init`，已有的 `.ai-memory/ACTIVE.md` 和历史快照不受影响。
-- **规则与 Skill**：如果新版本更新了模板内容（如修复了规则措辞或新增了 Skill 步骤），对已接入的项目重新执行 `integrate` 即可刷新。命令只替换 `<!-- handoff-memory:start/end -->` 受管区块，保留区块外的用户自定义内容。
+- **规则与 Skill**：刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。命令只替换 `<!-- handoff-memory:start/end -->` 区块；YAML frontmatter 和其他区块外内容会原样保留。
 - **命令兼容性**：`save` 和 `resume` 的 JSON 输出包含 `schema_version`，新版本会保持向后兼容。
 
 ```powershell
-# 升级后刷新某个项目的 Antigravity IDE 规则与 Skill
+# 只刷新 Antigravity Skill
 cd D:\your-project
 handoff-memory integrate antigravity .
+# 同时刷新规则与 Skill
+handoff-memory integrate antigravity . --with-rules
 ```
 
 安装后可使用独立帮助命令。未指定主题时显示总体说明，指定命令时显示参数、默认行为和示例：
@@ -93,17 +95,26 @@ handoff-memory init D:\project\demo --name "Demo"
 handoff-memory init D:\project\demo --name "Demo" --select-tools
 ```
 
-列表支持编号多选、`all` 全选和直接回车跳过。每个具名客户端都会生成原生项目级 Skill；具有独立规则文件的客户端还会同时生成规则。交互模式必须显式开启，因此 CI、安装脚本以及标准输入被占用的场景不会意外等待输入。
+列表支持编号多选、`all` 全选和直接回车跳过。每个具名客户端默认只生成原生项目级 Skill；只有增加 `--with-rules` 才会同时生成客户端规则。交互模式必须显式开启，因此 CI、安装脚本以及标准输入被占用的场景不会意外等待输入。
 
-同时安装指定客户端规则：
+接入指定客户端：
 
 ```powershell
 handoff-memory init D:\project\demo --name "Demo" --integrate codex
 ```
 
-将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、Antigravity IDE、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。`all` 会生成全部已支持适配文件，只适合确实同时使用多个 AI 工具的项目。
+将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、Antigravity IDE、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。
 
-所有具名目标都会生成对应项目级 `session-handoff` Skill。`codex` 或 `opencode` 默认不会处理 `AGENTS.md`；需要常驻自动提醒时增加 `--with-agents-rule`，届时不存在则创建，已有文件则保留原内容并追加受管路由。
+在 `--select-tools` 菜单中输入 `all`，或使用 `--integrate all`，都会选择全部 12 个具名客户端，只适合确实同时使用多个 AI 工具的项目。`generic` 和 `skill` 是独立辅助目标，不会被 `all` 隐式执行。
+
+所有具名目标默认只生成对应项目级 `session-handoff` Skill。需要常驻自动提醒时增加 `--with-rules`：具有原生规则目录的客户端会生成对应规则，Codex 和 OpenCode 会创建或幂等更新根目录 `AGENTS.md`。
+
+```powershell
+handoff-memory init D:\project\demo --integrate qoder --with-rules
+handoff-memory init D:\project\demo --select-tools --with-rules
+```
+
+`0.10.0` 已移除旧参数 `--with-agents-rule`；原有脚本直接替换为 `--with-rules`。
 
 默认不会覆盖已有文件。只有明确确认 Handoff Memory 自有初始化内容可以重置时才使用：
 
@@ -229,9 +240,13 @@ handoff-memory check .
 
 ```gitignore
 .ai-memory/
+# 仅在生成了对应接入文件时添加
 AI-HANDOFF.md
 .agents/skills/session-handoff/
+.agents/rules/handoff-memory.md
 ```
+
+其他客户端会写入各自目录，例如 `.claude/skills`、`.cursor/rules` 或 `.github/skills`。运行 `handoff-memory help integrate` 查看实际路径，并只忽略当前项目生成的具体文件或 `session-handoff` 目录；不要直接忽略整个 `.github/`、`.cursor/` 等目录，以免隐藏项目已有配置。修改忽略规则后运行 `git status --short`，确认没有遗漏接入文件。
 
 SVN 项目可以设置 `svn:ignore`：
 
@@ -239,6 +254,8 @@ SVN 项目可以设置 `svn:ignore`：
 svn propset svn:ignore ".ai-memory" .
 svn commit -m "chore: 忽略本地 AI 交接目录"
 ```
+
+上例只忽略核心记忆目录；如果规则和 Skill 也不纳入 SVN，需要针对其所在父目录设置对应的 `svn:ignore`，并在提交前使用 `svn status` 核对。
 
 也可以只纳管 `ACTIVE.md` 与 `config.json`，忽略 `sessions/`。选择取决于交接内容是否属于团队知识。
 

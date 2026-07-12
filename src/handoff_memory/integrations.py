@@ -52,21 +52,21 @@ def integrate(
     path: Path | str,
     target: str,
     *,
-    with_agents_rule: bool = False,
+    with_rules: bool = False,
 ) -> list[Path]:
-    """生成指定 AI 工具适配；重复执行只更新受管区块。"""
+    """生成指定 AI 工具 Skill，并按显式选项生成规则。"""
     project = resolve_project(path)
     if target not in TARGETS:
         raise ValueError(f"未知接入目标：{target}")
-    if with_agents_rule and target not in {"codex", "opencode", "all"}:
-        raise ValueError("--with-agents-rule 仅适用于 codex、opencode 或 all 接入目标")
-    targets = ("generic", *AI_TOOL_TARGETS, "skill") if target == "all" else (target,)
+    if with_rules and target not in {*AI_TOOL_TARGETS, "all"}:
+        raise ValueError("--with-rules 仅适用于具名客户端或 all 接入目标")
+    targets = AI_TOOL_TARGETS if target == "all" else (target,)
     changed: list[Path] = []
     for item in targets:
         adapters = _adapters(
             project,
             item,
-            with_agents_rule=(with_agents_rule and item in {"codex", "opencode"}),
+            with_rules=with_rules,
         )
         for destination, content in adapters:
             before = destination.read_text(encoding="utf-8") if destination.exists() else ""
@@ -81,81 +81,91 @@ def _adapters(
     project: Path,
     target: str,
     *,
-    with_agents_rule: bool = False,
+    with_rules: bool = False,
 ) -> tuple[tuple[Path, str], ...]:
     if target == "generic":
         return ((project / "AI-HANDOFF.md", "# AI 会话交接\n\n" + GENERIC_RULE + "\n"),)
     if target == "codex":
         adapters = list(_with_project_skill(project, target))
-        if with_agents_rule:
+        if with_rules:
             adapters.append((project / "AGENTS.md", AGENTS_ROUTING_RULE + "\n"))
         return tuple(adapters)
     if target == "claude":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / "CLAUDE.md", GENERIC_RULE + "\n"),
+            with_rules=with_rules,
         )
     if target == "gemini":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / "GEMINI.md", GENERIC_RULE + "\n"),
+            with_rules=with_rules,
         )
     if target == "cursor":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".cursor/rules/handoff-memory.mdc", CURSOR_RULE),
+            with_rules=with_rules,
         )
     if target == "copilot":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".github/copilot-instructions.md", GENERIC_RULE + "\n"),
+            with_rules=with_rules,
         )
     if target == "windsurf":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".windsurf/rules/handoff-memory.md", WINDSURF_RULE),
+            with_rules=with_rules,
         )
     if target == "cline":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".clinerules/handoff-memory.md", GENERIC_RULE + "\n"),
+            with_rules=with_rules,
         )
     if target == "kiro":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".kiro/steering/handoff-memory.md", KIRO_RULE),
+            with_rules=with_rules,
         )
     if target == "trae":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".trae/rules/project_rules.md", GENERIC_RULE + "\n"),
+            with_rules=with_rules,
         )
     if target == "qoder":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (project / ".qoder/rules/handoff-memory.md", GENERIC_RULE + "\n"),
+            with_rules=with_rules,
         )
     if target == "antigravity":
-        return _with_project_skill(
+        return _with_optional_rule(
             project,
             target,
             (
                 project / ".agents/rules/handoff-memory.md",
                 AGENTS_ROUTING_RULE + "\n",
             ),
+            with_rules=with_rules,
         )
     if target == "opencode":
         adapters = list(_with_project_skill(project, target))
-        if with_agents_rule:
+        if with_rules:
             adapters.append((project / "AGENTS.md", AGENTS_ROUTING_RULE + "\n"))
         return tuple(adapters)
     if target == "skill":
@@ -171,6 +181,18 @@ def _with_project_skill(
     """在客户端规则之后追加其原生项目级 session-handoff Skill。"""
     skill = (project / PROJECT_SKILL_PATHS[target], SKILL_TEMPLATE)
     return (*adapters, skill)
+
+
+def _with_optional_rule(
+    project: Path,
+    target: str,
+    rule: tuple[Path, str],
+    *,
+    with_rules: bool,
+) -> tuple[tuple[Path, str], ...]:
+    """默认只生成 Skill；显式开启后在 Skill 前追加客户端规则。"""
+    adapters = (rule,) if with_rules else ()
+    return _with_project_skill(project, target, *adapters)
 
 
 def _merge_managed_block(existing: str, content: str) -> str:

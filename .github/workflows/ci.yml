@@ -50,14 +50,17 @@ jobs:
           handoff-memory init "$project" --name "Wheel Smoke" --integrate codex
           test ! -e "$project/AGENTS.md"
           test -f "$project/.agents/skills/session-handoff/SKILL.md"
-          handoff-memory integrate codex "$project" --with-agents-rule
+          handoff-memory integrate codex "$project" --with-rules
           test -f "$project/AGENTS.md"
           interactive_project="${RUNNER_TEMP}/handoff-interactive"
           printf 'all\n' | handoff-memory init "$interactive_project" --select-tools
-          test -f "$interactive_project/.agents/rules/handoff-memory.md"
           test -f "$interactive_project/.agents/skills/session-handoff/SKILL.md"
-          test -f "$interactive_project/.github/copilot-instructions.md"
+          test ! -e "$interactive_project/.agents/rules/handoff-memory.md"
+          test ! -e "$interactive_project/.github/copilot-instructions.md"
           test -f "$interactive_project/.github/skills/session-handoff/SKILL.md"
+          handoff-memory integrate all "$interactive_project" --with-rules
+          test -f "$interactive_project/.agents/rules/handoff-memory.md"
+          test -f "$interactive_project/.github/copilot-instructions.md"
           test -f "$interactive_project/.trae/rules/project_rules.md"
           test -f "$interactive_project/.trae/skills/session-handoff/SKILL.md"
           test -f "$interactive_project/.qoder/rules/handoff-memory.md"

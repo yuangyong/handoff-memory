@@ -43,7 +43,7 @@ pipx install . --force
 uv tool install . --force
 ```
 
-升级后已初始化的项目不需要重新 `init`。如果新版本更新了规则或 Skill 模板，对需要刷新的项目重新执行 `integrate` 即可；受管区块外的用户内容不会被覆盖。
+升级后已初始化的项目不需要重新 `init`。刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。命令只更新受管正文，YAML frontmatter 等区块外内容会原样保留。
 
 开发模式：
 
@@ -69,7 +69,7 @@ handoff-memory init . --name "你的项目" --integrate codex
 如果希望每次会话都能看到一条 Skill 自动提醒，可以显式生成 `AGENTS.md` 路由：
 
 ```powershell
-handoff-memory init . --name "你的项目" --integrate codex --with-agents-rule
+handoff-memory init . --name "你的项目" --integrate codex --with-rules
 ```
 
 这会创建：
@@ -81,14 +81,14 @@ handoff-memory init . --name "你的项目" --integrate codex --with-agents-rule
 └── sessions/       # 只增不改的历史快照
 ```
 
-每个具名目标都会生成原生项目级 `session-handoff` Skill；具有独立规则文件的客户端还会同时生成规则。Codex 和 OpenCode 默认不读取或修改 `AGENTS.md`；只有指定 `--with-agents-rule` 时，才会创建该文件，或保留已有内容并追加一条按需调用 Skill 的简短规则。具名客户端包括：
+每个具名目标默认只生成原生项目级 `session-handoff` Skill，不创建客户端规则。需要常驻提醒时显式增加 `--with-rules`；命令会创建或幂等更新所选客户端的原生规则，Codex 和 OpenCode 则使用根目录 `AGENTS.md`。具名客户端包括：
 
 ```text
 codex | claude | cursor | gemini | antigravity | copilot | windsurf
 cline | kiro | trae | qoder | opencode
 ```
 
-另有 `generic`、`skill` 和代表全部已支持适配器的 `all`。完整规则与 Skill 路径可运行 `handoff-memory help integrate` 查看。
+另有 `generic`、`skill` 和 `all`。菜单中的 `all` 与 `--integrate all` 都表示全部具名客户端；`generic` 和 `skill` 是需要单独指定的辅助目标。完整规则与 Skill 路径可运行 `handoff-memory help integrate` 查看。
 
 ### 保存当前会话
 
@@ -133,7 +133,7 @@ handoff-memory resume . --format json
 | `handoff-memory save [PATH]` | 校验、采集 Git/SVN 状态并归档 |
 | `handoff-memory resume [PATH]` | 输出恢复上下文和状态漂移 |
 | `handoff-memory check [PATH]` | 检查结构、必需章节和敏感信息 |
-| `handoff-memory integrate TARGET [PATH]` | 添加或更新 AI 工具规则与项目级 Skill |
+| `handoff-memory integrate TARGET [PATH]` | 添加项目级 Skill，并可显式更新客户端规则 |
 
 执行 `handoff-memory init --help` 可查看初始化参数，或用 `handoff-memory init . --select-tools` 交互选择客户端。
 
@@ -190,7 +190,7 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 - 首版不提供向量检索；历史量真正变大后再增加可选索引层。
 - 公共 CLI 采用向后兼容扩展，稳定 JSON 输出包含 `schema_version`。
 
-设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md) 与 [ADR-004](docs/decisions/ADR-004-native-project-skills.md)。
+设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md)、[ADR-004](docs/decisions/ADR-004-native-project-skills.md) 与 [ADR-005](docs/decisions/ADR-005-explicit-rule-generation.md)。
 
 ## 开发
 

@@ -38,7 +38,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("交互选择", content)
         self.assertIn("--integrate", content)
-        self.assertIn("--with-agents-rule", content)
+        self.assertIn("--with-rules", content)
+        self.assertNotIn("--with-agents-rule", content)
         self.assertIn("示例", content)
 
     def test_integrate_help_lists_supported_targets_and_output_paths(self) -> None:
@@ -57,6 +58,7 @@ class CliTests(unittest.TestCase):
         self.assertIn(".trae/skills/session-handoff/SKILL.md", content)
         self.assertIn("TRAE", content)
         self.assertIn(".trae/rules/project_rules.md", content)
+        self.assertIn("规则默认不生成", content)
         self.assertNotIn("Roo Code", content)
 
     def test_package_version_matches_pyproject(self) -> None:
@@ -150,15 +152,11 @@ class CliTests(unittest.TestCase):
             self.assertTrue(
                 (project / ".agents/skills/session-handoff/SKILL.md").is_file()
             )
-            self.assertTrue(
-                (project / ".cursor/rules/handoff-memory.mdc").is_file()
-            )
+            self.assertFalse((project / ".cursor/rules/handoff-memory.mdc").exists())
             self.assertTrue(
                 (project / ".cursor/skills/session-handoff/SKILL.md").is_file()
             )
-            self.assertTrue(
-                (project / ".github/copilot-instructions.md").is_file()
-            )
+            self.assertFalse((project / ".github/copilot-instructions.md").exists())
             self.assertTrue(
                 (project / ".github/skills/session-handoff/SKILL.md").is_file()
             )
@@ -186,43 +184,40 @@ class CliTests(unittest.TestCase):
                 code = main(["init", str(project), "--select-tools"])
 
             self.assertEqual(code, 0)
-            self.assertTrue((project / "CLAUDE.md").is_file())
+            self.assertTrue((project / ".claude/skills/session-handoff/SKILL.md").is_file())
+            self.assertFalse((project / "CLAUDE.md").exists())
             self.assertIn("无效选择", output.getvalue())
 
-    def test_interactive_codex_selection_can_add_agents_rule_with_other_tools(self) -> None:
+    def test_interactive_codex_antigravity_qoder_default_to_skills_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            output = io.StringIO()
+
+            with patch("builtins.input", return_value="1,5,11"), redirect_stdout(output):
+                code = main(["init", str(project), "--select-tools"])
+
+            self.assertEqual(code, 0)
+            self.assertTrue((project / ".agents/skills/session-handoff/SKILL.md").is_file())
+            self.assertTrue((project / ".qoder/skills/session-handoff/SKILL.md").is_file())
+            self.assertFalse((project / ".agents/rules/handoff-memory.md").exists())
+            self.assertFalse((project / ".qoder/rules/handoff-memory.md").exists())
+            self.assertIn("已更新 2 个 AI 接入文件", output.getvalue())
+
+    def test_interactive_rules_option_creates_selected_native_rules(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
-            with patch("builtins.input", return_value="1,3"):
+            with patch("builtins.input", return_value="1,5,11"):
                 code = main(
-                    ["init", str(project), "--select-tools", "--with-agents-rule"]
+                    ["init", str(project), "--select-tools", "--with-rules"]
                 )
 
             self.assertEqual(code, 0)
             self.assertTrue((project / "AGENTS.md").is_file())
-            self.assertTrue(
-                (project / ".cursor/rules/handoff-memory.mdc").is_file()
-            )
+            self.assertTrue((project / ".agents/rules/handoff-memory.md").is_file())
+            self.assertTrue((project / ".qoder/rules/handoff-memory.md").is_file())
 
-    def test_interactive_agents_rule_requires_codex_before_initialization(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
-            error = io.StringIO()
-
-            with (
-                patch("builtins.input", return_value="3"),
-                redirect_stderr(error),
-            ):
-                code = main(
-                    ["init", str(project), "--select-tools", "--with-agents-rule"]
-                )
-
-            self.assertEqual(code, 2)
-            self.assertFalse((project / ".ai-memory").exists())
-            self.assertIn("codex", error.getvalue())
-
-
-    def test_init_with_codex_appends_route_to_existing_agents_file(self) -> None:
+    def test_init_with_codex_rules_appends_route_to_existing_agents_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
             project.mkdir(exist_ok=True)
@@ -235,7 +230,7 @@ class CliTests(unittest.TestCase):
                     str(project),
                     "--integrate",
                     "codex",
-                    "--with-agents-rule",
+                    "--with-rules",
                 ]
             )
 
@@ -245,12 +240,12 @@ class CliTests(unittest.TestCase):
             self.assertIn("使用 `session-handoff` Skill", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
-    def test_integrate_codex_can_create_agents_rule_explicitly(self) -> None:
+    def test_integrate_codex_can_create_root_rule_explicitly(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
             code = main(
-                ["integrate", "codex", str(project), "--with-agents-rule"]
+                ["integrate", "codex", str(project), "--with-rules"]
             )
 
             self.assertEqual(code, 0)
@@ -259,23 +254,51 @@ class CliTests(unittest.TestCase):
                 (project / ".agents/skills/session-handoff/SKILL.md").is_file()
             )
 
-    def test_init_rejects_agents_rule_for_non_codex_target(self) -> None:
+    def test_init_rules_option_supports_non_codex_target(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
+            code = main(
+                ["init", directory, "--integrate", "claude", "--with-rules"]
+            )
+
+            self.assertEqual(code, 0)
+            self.assertTrue((Path(directory) / "CLAUDE.md").is_file())
+
+    def test_rules_option_rejects_auxiliary_target_before_initialization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
             error = io.StringIO()
 
             with redirect_stderr(error):
                 code = main(
-                    [
-                        "init",
-                        directory,
-                        "--integrate",
-                        "claude",
-                        "--with-agents-rule",
-                    ]
+                    ["init", str(project), "--integrate", "generic", "--with-rules"]
                 )
 
             self.assertEqual(code, 2)
-            self.assertIn("codex", error.getvalue())
+            self.assertFalse((project / ".ai-memory").exists())
+            self.assertIn("具名客户端", error.getvalue())
+
+    def test_removed_agents_rule_option_is_rejected(self) -> None:
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "handoff_memory",
+                "integrate",
+                "codex",
+                ".",
+                "--with-agents-rule",
+            ],
+            cwd=Path(__file__).parents[1],
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(b"--with-agents-rule", result.stderr)
 
     def test_user_error_returns_exit_code_two_without_traceback(self) -> None:
         error = io.StringIO()

@@ -16,3 +16,27 @@ venv/
 *.key
 .idea/
 .vscode/
+
+# Handoff Memory 本机运行数据
+.ai-memory/
+
+# 当前仓库不纳管本机 AI 工具项目配置
+AI-HANDOFF.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.agents/
+.claude/
+.cursor/
+.gemini/
+.windsurf/
+.clinerules/
+.cline/
+.kiro/
+.trae/
+.qoder/
+.opencode/
+
+# .github 同时承载 CI，不能整目录忽略
+.github/copilot-instructions.md
+.github/skills/session-handoff/

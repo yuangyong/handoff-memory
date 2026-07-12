@@ -8,8 +8,10 @@
 - 规则文件只提供轻量提醒，Skill 按需加载完整 `resume` 和 `save` 流程。
 - 客户端即使不支持自动规则，也能通过首条提示词使用相同流程。
 - 每次只接入实际使用的客户端；`all` 仅用于多客户端项目。
-- 每个具名客户端生成原生项目级 Skill；具有独立规则文件的客户端同时生成规则，`generic` 和 `skill` 是辅助目标。
+- 每个具名客户端默认只生成原生项目级 Skill；客户端规则必须通过 `--with-rules` 显式开启，`generic` 和 `skill` 是独立辅助目标。
 - 所有输出只更新 `handoff-memory:start/end` 受管区块，保留区块外的用户内容。
+
+`--select-tools` 菜单中的 `all` 和 `--integrate all` 都只选择全部具名客户端；`generic` 与 `skill` 必须单独指定。由于 Codex 和 Antigravity 共享 `.agents/skills/session-handoff/SKILL.md`，同一路径只会保留一份幂等文件。
 
 ## Codex
 
@@ -22,7 +24,7 @@ handoff-memory integrate codex .
 需要常驻自动提醒时显式执行：
 
 ```powershell
-handoff-memory integrate codex . --with-agents-rule
+handoff-memory integrate codex . --with-rules
 ```
 
 此时无论 `AGENTS.md` 是否已存在都会处理：不存在则创建仅含简短路由的文件；已存在则保留原内容，只追加或更新一个受管区块。路由仅要求在用户保存、恢复或继续上次任务时使用 `session-handoff` Skill。
@@ -35,7 +37,7 @@ handoff-memory integrate codex . --with-agents-rule
 handoff-memory integrate claude .
 ```
 
-更新 `CLAUDE.md`，并根据 [Claude Code Skills](https://code.claude.com/docs/en/slash-commands) 创建 `.claude/skills/session-handoff/SKILL.md`。如果自行配置 SessionStart、PreCompact 或 Stop hooks，可以调用 CLI，但 Handoff Memory 核心不依赖这些 hooks。尤其不要只在 SessionEnd 保存。
+默认根据 [Claude Code Skills](https://code.claude.com/docs/en/slash-commands) 创建 `.claude/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再更新 `CLAUDE.md`。如果自行配置 SessionStart、PreCompact 或 Stop hooks，可以调用 CLI，但 Handoff Memory 核心不依赖这些 hooks。尤其不要只在 SessionEnd 保存。
 
 ## Cursor
 
@@ -43,7 +45,7 @@ handoff-memory integrate claude .
 handoff-memory integrate cursor .
 ```
 
-创建 `.cursor/rules/handoff-memory.mdc`，并根据 [Cursor Agent Skills](https://cursor.com/docs/skills) 创建 `.cursor/skills/session-handoff/SKILL.md`。
+默认根据 [Cursor Agent Skills](https://cursor.com/docs/skills) 创建 `.cursor/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 `.cursor/rules/handoff-memory.mdc`。
 
 ## Gemini CLI
 
@@ -51,7 +53,7 @@ handoff-memory integrate cursor .
 handoff-memory integrate gemini .
 ```
 
-更新 `GEMINI.md`，并根据 [Gemini CLI Agent Skills](https://geminicli.com/docs/cli/using-agent-skills/) 创建 `.gemini/skills/session-handoff/SKILL.md`。
+默认根据 [Gemini CLI Agent Skills](https://geminicli.com/docs/cli/using-agent-skills/) 创建 `.gemini/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再更新 `GEMINI.md`。
 
 ## Antigravity IDE
 
@@ -59,7 +61,9 @@ handoff-memory integrate gemini .
 handoff-memory integrate antigravity .
 ```
 
-根据 [Antigravity IDE Rules](https://antigravity.google/docs/ide-rules) 创建轻量规则 `.agents/rules/handoff-memory.md`，并根据 [Antigravity IDE Agent Skills](https://antigravity.google/docs/skills?app=antigravity-ide) 创建 `.agents/skills/session-handoff/SKILL.md`。Skill 路径与 Codex 共享，因此同时接入两者时只保留一份 Skill 文件。
+默认根据 [Antigravity IDE Agent Skills](https://antigravity.google/docs/skills?app=antigravity-ide) 创建 `.agents/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再根据 [Antigravity IDE Rules](https://antigravity.google/docs/ide-rules) 创建轻量规则 `.agents/rules/handoff-memory.md`。Skill 路径与 Codex 共享，因此同时接入两者时只保留一份 Skill 文件。
+
+规则只负责把保存、恢复和继续任务请求路由到 Skill，不复制完整流程。Antigravity 支持 Manual、Always On、Model Decision 和 Glob 等规则激活方式，可在客户端中按项目需要选择；即使不依赖常驻规则，也可以直接要求使用 `session-handoff` Skill。官方规则文件上限为 12,000 字符，当前轻量路由远低于该限制。
 
 ## GitHub Copilot
 
@@ -67,7 +71,7 @@ handoff-memory integrate antigravity .
 handoff-memory integrate copilot .
 ```
 
-更新 `.github/copilot-instructions.md`，并根据 [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) 创建 `.github/skills/session-handoff/SKILL.md`。
+默认根据 [GitHub Copilot Agent Skills](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/add-skills) 创建 `.github/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再更新 `.github/copilot-instructions.md`。
 
 ## Windsurf
 
@@ -75,7 +79,7 @@ handoff-memory integrate copilot .
 handoff-memory integrate windsurf .
 ```
 
-创建 `.windsurf/rules/handoff-memory.md`，并根据 [Windsurf Skills](https://docs.windsurf.com/windsurf/cascade/skills) 创建 `.windsurf/skills/session-handoff/SKILL.md`。规则使用 `model_decision` 触发方式。
+默认根据 [Windsurf Skills](https://docs.windsurf.com/windsurf/cascade/skills) 创建 `.windsurf/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 `.windsurf/rules/handoff-memory.md`。规则使用 `model_decision` 触发方式。
 
 ## Cline
 
@@ -83,7 +87,7 @@ handoff-memory integrate windsurf .
 handoff-memory integrate cline .
 ```
 
-创建 [Cline 工作区规则](https://docs.cline.bot/customization/cline-rules) `.clinerules/handoff-memory.md`，并根据 [Cline Skills](https://docs.cline.bot/customization/skills) 创建 `.cline/skills/session-handoff/SKILL.md`。
+默认根据 [Cline Skills](https://docs.cline.bot/customization/skills) 创建 `.cline/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 [Cline 工作区规则](https://docs.cline.bot/customization/cline-rules) `.clinerules/handoff-memory.md`。
 
 ## Kiro
 
@@ -91,7 +95,7 @@ handoff-memory integrate cline .
 handoff-memory integrate kiro .
 ```
 
-创建 [Kiro Steering](https://kiro.dev/docs/steering/) 文件 `.kiro/steering/handoff-memory.md`，并根据 [Kiro Agent Skills](https://kiro.dev/docs/cli/skills/) 创建 `.kiro/skills/session-handoff/SKILL.md`。
+默认根据 [Kiro Agent Skills](https://kiro.dev/docs/cli/skills/) 创建 `.kiro/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 [Kiro Steering](https://kiro.dev/docs/steering/) 文件 `.kiro/steering/handoff-memory.md`。
 
 ## TRAE
 
@@ -99,7 +103,7 @@ handoff-memory integrate kiro .
 handoff-memory integrate trae .
 ```
 
-更新 [TRAE 项目规则](https://forum.trae.cn/t/topic/52) `.trae/rules/project_rules.md`；根据 [TRAE Agent Skills](https://www.trae.ai/blog/trae_tutorial_0115?v=1) 和[官方社区项目目录说明](https://forum.trae.cn/t/topic/31835)创建 `.trae/skills/session-handoff/SKILL.md`。
+默认根据 [TRAE Agent Skills](https://www.trae.ai/blog/trae_tutorial_0115?v=1) 和[官方社区项目目录说明](https://forum.trae.cn/t/topic/31835)创建 `.trae/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再更新 [TRAE 项目规则](https://forum.trae.cn/t/topic/52) `.trae/rules/project_rules.md`。
 
 ## Qoder
 
@@ -107,7 +111,7 @@ handoff-memory integrate trae .
 handoff-memory integrate qoder .
 ```
 
-创建 [Qoder 项目规则](https://docs.qoder.com/user-guide/rules) `.qoder/rules/handoff-memory.md`，并根据 [Qoder CLI Skills](https://docs.qoder.com/en/cli/Skills) 创建 `.qoder/skills/session-handoff/SKILL.md`。
+默认根据 [Qoder CLI Skills](https://docs.qoder.com/en/cli/Skills) 创建 `.qoder/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 [Qoder 项目规则](https://docs.qoder.com/user-guide/rules) `.qoder/rules/handoff-memory.md`。
 
 ## OpenCode
 
@@ -115,10 +119,10 @@ handoff-memory integrate qoder .
 handoff-memory integrate opencode .
 ```
 
-创建 `.opencode/skills/session-handoff/SKILL.md`，由 [OpenCode Agent Skills](https://opencode.ai/docs/skills) 的原生 `skill` 工具按需加载，不处理 `AGENTS.md`。需要常驻路由时显式执行：
+创建 `.opencode/skills/session-handoff/SKILL.md`，由 [OpenCode Agent Skills](https://opencode.ai/docs/skills) 的原生 `skill` 工具按需加载，默认不处理 `AGENTS.md`。需要常驻路由时显式执行：
 
 ```powershell
-handoff-memory integrate opencode . --with-agents-rule
+handoff-memory integrate opencode . --with-rules
 ```
 
 OpenCode 也支持 `.agents/skills`，但使用独立的 `.opencode/skills` 路径可以清楚表达所选客户端，并避免与 Codex 接入状态混淆。

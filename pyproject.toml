@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "handoff-memory"
-version = "0.9.0"
+version = "0.10.0"
 description = "本地优先、跨 AI 工具的会话交接记忆 CLI"
 readme = "README.md"
 requires-python = ">=3.10"

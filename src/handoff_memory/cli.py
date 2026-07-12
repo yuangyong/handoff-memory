@@ -68,7 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog="""示例：
   handoff-memory init . --select-tools
   handoff-memory init . --name "示例项目" --integrate codex
-  handoff-memory init . --integrate codex --with-agents-rule
+  handoff-memory init . --integrate codex --with-rules
 
 `--select-tools` 是显式交互模式，支持多选；脚本和 CI 请使用 `--integrate`。""",
     )
@@ -79,7 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     integration_mode.add_argument(
         "--integrate",
         choices=TARGETS,
-        help="非交互接入一个 AI 工具；all 表示全部已支持目标",
+        help="非交互接入一个 AI 工具；all 表示全部具名客户端",
     )
     integration_mode.add_argument(
         "--select-tools",
@@ -87,9 +87,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="显示 AI 工具列表并交互多选，直接回车可跳过",
     )
     init.add_argument(
-        "--with-agents-rule",
+        "--with-rules",
         action="store_true",
-        help="为 codex/opencode/all 创建或更新 AGENTS.md Skill 路由",
+        help="显式生成所选客户端规则；默认只生成项目级 Skill",
     )
 
     save = subparsers.add_parser(
@@ -134,8 +134,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapter = subparsers.add_parser(
         "integrate",
-        help="生成或更新 AI 工具规则与项目级 Skill",
-        description="为指定客户端生成幂等规则和原生项目级 Skill；保留受管区块外的原有内容。",
+        help="生成项目级 Skill，并可显式生成客户端规则",
+        description="默认只生成原生项目级 Skill；指定 --with-rules 后生成幂等客户端规则。",
         formatter_class=_FORMATTER,
         epilog="""主要目标与项目级 Skill：
   codex        OpenAI Codex      .agents/skills/session-handoff/SKILL.md
@@ -151,27 +151,29 @@ def build_parser() -> argparse.ArgumentParser:
   trae         TRAE              .trae/skills/session-handoff/SKILL.md
   qoder        Qoder             .qoder/skills/session-handoff/SKILL.md
 
-规则输出：
+使用 --with-rules 时的规则输出：
   claude CLAUDE.md；cursor .cursor/rules/handoff-memory.mdc；gemini GEMINI.md
   antigravity .agents/rules/handoff-memory.md
   copilot .github/copilot-instructions.md；windsurf .windsurf/rules/handoff-memory.md
   cline .clinerules/handoff-memory.md；kiro .kiro/steering/handoff-memory.md
   trae .trae/rules/project_rules.md；qoder .qoder/rules/handoff-memory.md
-  Codex/OpenCode 的 AGENTS.md 路由需显式开启。
+  codex/opencode AGENTS.md
 
-其他目标：generic 生成通用规则，skill 生成可移植 Skill，all 生成全部适配。
+规则默认不生成；generic 是只生成通用规则的独立辅助目标。
+
+其他目标：generic 生成通用规则，skill 生成可移植 Skill，all 生成全部具名客户端 Skill。
 
 示例：
   handoff-memory integrate copilot .
-  handoff-memory integrate codex . --with-agents-rule
-  handoff-memory integrate all .""",
+  handoff-memory integrate qoder . --with-rules
+  handoff-memory integrate all . --with-rules""",
     )
     adapter.add_argument("target", choices=TARGETS, help="客户端短名称或辅助目标")
     adapter.add_argument("path", nargs="?", default=".", help="项目目录，默认为当前目录")
     adapter.add_argument(
-        "--with-agents-rule",
+        "--with-rules",
         action="store_true",
-        help="为 codex/opencode/all 创建或更新 AGENTS.md Skill 路由",
+        help="显式生成所选客户端规则；默认只生成项目级 Skill",
     )
 
     help_command = subparsers.add_parser(
@@ -207,11 +209,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             selected_targets = (
                 _select_ai_tools() if args.select_tools else ((args.integrate,) if args.integrate else ())
             )
-            if args.with_agents_rule and not any(
-                target in {"codex", "opencode", "all"} for target in selected_targets
+            if args.with_rules and (
+                not selected_targets
+                or any(target in {"generic", "skill"} for target in selected_targets)
             ):
                 raise HandoffError(
-                    "--with-agents-rule 必须选择 codex/opencode，或与 --integrate all 一起使用"
+                    "--with-rules 必须与具名客户端、--select-tools 或 --integrate all 一起使用"
                 )
             result = initialize_project(args.path, name=args.name, force=args.force)
             print(f"已{'创建' if result.created else '检查'}记忆目录：{Path(args.path).resolve() / '.ai-memory'}")
@@ -222,10 +225,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         integrate(
                             args.path,
                             target,
-                            with_agents_rule=(
-                                args.with_agents_rule
-                                and target in {"codex", "opencode", "all"}
-                            ),
+                            with_rules=args.with_rules,
                         )
                     )
                 print(f"已更新 {len(changed)} 个 AI 接入文件")
@@ -264,7 +264,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             changed = integrate(
                 args.path,
                 args.target,
-                with_agents_rule=args.with_agents_rule,
+                with_rules=args.with_rules,
             )
             print(f"已更新 {len(changed)} 个 AI 接入文件")
             return 0

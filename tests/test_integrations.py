@@ -45,12 +45,30 @@ class IntegrationTemplateTests(unittest.TestCase):
             project = Path(directory)
             for target, relative_path in expected_paths.items():
                 with self.subTest(target=target):
-                    changed = integrate(project, target)
+                    changed = integrate(project, target, with_rules=True)
                     destination = project / relative_path
                     self.assertIn(destination, changed)
                     self.assertTrue(destination.is_file())
                     self.assertIn("handoff-memory:start", destination.read_text(encoding="utf-8"))
-                    self.assertEqual(integrate(project, target), [])
+                    self.assertEqual(integrate(project, target, with_rules=True), [])
+
+    def test_named_integrations_create_only_skills_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            antigravity_changed = integrate(project, "antigravity")
+            qoder_changed = integrate(project, "qoder")
+
+            self.assertEqual(
+                antigravity_changed,
+                [project / ".agents/skills/session-handoff/SKILL.md"],
+            )
+            self.assertEqual(
+                qoder_changed,
+                [project / ".qoder/skills/session-handoff/SKILL.md"],
+            )
+            self.assertFalse((project / ".agents/rules/handoff-memory.md").exists())
+            self.assertFalse((project / ".qoder/rules/handoff-memory.md").exists())
 
     def test_every_named_ai_tool_creates_skill_in_native_project_directory(self) -> None:
         expected_paths = {
@@ -95,14 +113,14 @@ class IntegrationTemplateTests(unittest.TestCase):
                 (project / ".agents/skills/session-handoff/SKILL.md").is_file()
             )
 
-    def test_codex_agents_rule_option_preserves_and_appends_existing_file(self) -> None:
+    def test_codex_rules_option_preserves_and_appends_existing_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
             agents = project / "AGENTS.md"
             agents.write_text("# 原有规则\n", encoding="utf-8")
 
-            integrate(project, "codex", with_agents_rule=True)
-            integrate(project, "codex", with_agents_rule=True)
+            integrate(project, "codex", with_rules=True)
+            integrate(project, "codex", with_rules=True)
 
             content = agents.read_text(encoding="utf-8")
             self.assertIn("# 原有规则", content)
@@ -110,22 +128,22 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertNotIn("开始处理任务前", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
-    def test_codex_agents_rule_option_creates_missing_file(self) -> None:
+    def test_codex_rules_option_creates_missing_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
-            changed = integrate(project, "codex", with_agents_rule=True)
+            changed = integrate(project, "codex", with_rules=True)
 
             agents = project / "AGENTS.md"
             self.assertTrue(agents.is_file())
             self.assertIn("使用 `session-handoff` Skill", agents.read_text(encoding="utf-8"))
             self.assertEqual(len(changed), 2)
 
-    def test_antigravity_creates_workspace_rule_and_project_skill(self) -> None:
+    def test_antigravity_explicit_rules_create_workspace_rule_and_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
-            changed = integrate(project, "antigravity")
+            changed = integrate(project, "antigravity", with_rules=True)
 
             rule = project / ".agents/rules/handoff-memory.md"
             skill = project / ".agents/skills/session-handoff/SKILL.md"
@@ -138,7 +156,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertEqual(skill.read_text(encoding="utf-8"), SKILL_TEMPLATE)
             self.assertEqual(len(changed), 2)
             # 幂等性：再次执行不应产生变更
-            self.assertEqual(integrate(project, "antigravity"), [])
+            self.assertEqual(integrate(project, "antigravity", with_rules=True), [])
 
     def test_antigravity_preserves_existing_workspace_rule_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -147,7 +165,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             rule.parent.mkdir(parents=True, exist_ok=True)
             rule.write_text("# 用户自定义规则\n", encoding="utf-8")
 
-            integrate(project, "antigravity")
+            integrate(project, "antigravity", with_rules=True)
 
             content = rule.read_text(encoding="utf-8")
             self.assertIn("用户自定义规则", content)
@@ -163,7 +181,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             nested_agents.parent.mkdir(parents=True, exist_ok=True)
             nested_agents.write_text("# 其他工具规则\n", encoding="utf-8")
 
-            integrate(project, "antigravity")
+            integrate(project, "antigravity", with_rules=True)
 
             self.assertEqual(root_agents.read_text(encoding="utf-8"), "# Codex 规则\n")
             self.assertEqual(
@@ -183,7 +201,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             )
             self.assertFalse((project / "AGENTS.md").exists())
 
-            changed = integrate(project, "opencode", with_agents_rule=True)
+            changed = integrate(project, "opencode", with_rules=True)
 
             self.assertEqual(changed, [project / "AGENTS.md"])
             self.assertIn(
@@ -211,21 +229,23 @@ class IntegrationTemplateTests(unittest.TestCase):
             agents = project / "AGENTS.md"
             agents.write_text(GENERIC_RULE + "\n", encoding="utf-8")
 
-            integrate(project, "codex", with_agents_rule=True)
+            integrate(project, "codex", with_rules=True)
 
             content = agents.read_text(encoding="utf-8")
             self.assertIn("使用 `session-handoff` Skill", content)
             self.assertNotIn("开始处理任务前", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
-    def test_all_can_explicitly_include_agents_rule(self) -> None:
+    def test_all_can_explicitly_include_every_native_rule(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
-            changed = integrate(project, "all", with_agents_rule=True)
+            changed = integrate(project, "all", with_rules=True)
 
             self.assertTrue((project / "AGENTS.md").is_file())
-            self.assertEqual(len(changed), 23)
+            self.assertTrue((project / ".agents/rules/handoff-memory.md").is_file())
+            self.assertTrue((project / ".qoder/rules/handoff-memory.md").is_file())
+            self.assertEqual(len(changed), 22)
 
     def test_cursor_integration_preserves_existing_rule_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -234,7 +254,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             cursor_rule.parent.mkdir(parents=True)
             cursor_rule.write_text("---\nalwaysApply: true\n---\n\n用户自定义规则\n", encoding="utf-8")
 
-            integrate(project, "cursor")
+            integrate(project, "cursor", with_rules=True)
 
             content = cursor_rule.read_text(encoding="utf-8")
             self.assertIn("用户自定义规则", content)
@@ -253,28 +273,27 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertIn("用户自定义说明", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
-    def test_all_integration_creates_all_standalone_adapter_files(self) -> None:
+    def test_all_integration_creates_only_named_project_skills_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
             changed = integrate(project, "all")
 
             self.assertFalse((project / "AGENTS.md").exists())
-            self.assertTrue((project / "CLAUDE.md").is_file())
-            self.assertTrue((project / "GEMINI.md").is_file())
-            self.assertTrue((project / ".cursor/rules/handoff-memory.mdc").is_file())
-            self.assertTrue((project / "AI-HANDOFF.md").is_file())
+            self.assertFalse((project / "CLAUDE.md").exists())
+            self.assertFalse((project / "GEMINI.md").exists())
+            self.assertFalse((project / ".cursor/rules/handoff-memory.mdc").exists())
+            self.assertFalse((project / "AI-HANDOFF.md").exists())
             self.assertTrue((project / ".agents/skills/session-handoff/SKILL.md").is_file())
-            self.assertTrue((project / ".trae/rules/project_rules.md").is_file())
-            self.assertTrue((project / ".qoder/rules/handoff-memory.md").is_file())
+            self.assertFalse((project / ".trae/rules/project_rules.md").exists())
+            self.assertFalse((project / ".qoder/rules/handoff-memory.md").exists())
             self.assertTrue(
                 (project / ".opencode/skills/session-handoff/SKILL.md").is_file()
             )
             for relative_path in PROJECT_SKILL_PATHS.values():
                 self.assertTrue((project / relative_path).is_file())
-            # antigravity 的 Skill 和 codex 共享 .agents/skills/ 路径，
-            # 规则写入 .agents/rules/handoff-memory.md，共 22 个独立文件变更
-            self.assertEqual(len(changed), 22)
+            # Antigravity 与 Codex 共享 .agents/skills，共 11 个唯一 Skill 文件。
+            self.assertEqual(len(changed), 11)
 
             unchanged = integrate(project, "all")
             self.assertEqual(unchanged, [])
@@ -284,10 +303,12 @@ class IntegrationTemplateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 integrate(Path(directory), "unknown")
 
-    def test_agents_rule_option_is_limited_to_codex_targets(self) -> None:
+    def test_rules_option_rejects_auxiliary_targets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(ValueError, "codex.*all"):
-                integrate(Path(directory), "claude", with_agents_rule=True)
+            for target in ("generic", "skill"):
+                with self.subTest(target=target):
+                    with self.assertRaisesRegex(ValueError, "具名客户端.*all"):
+                        integrate(Path(directory), target, with_rules=True)
 
     def test_distributable_skill_matches_generated_skill(self) -> None:
         repository_skill = (
