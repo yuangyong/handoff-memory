@@ -21,28 +21,31 @@ def integrate(path: Path | str, target: str) -> list[Path]:
     targets = ("generic", "codex", "claude", "cursor", "gemini", "skill") if target == "all" else (target,)
     changed: list[Path] = []
     for item in targets:
-        destination, content = _adapter(project, item)
-        before = destination.read_text(encoding="utf-8") if destination.exists() else ""
-        after = _merge_managed_block(before, content)
-        if before != after:
-            atomic_write(destination, after)
-            changed.append(destination)
+        for destination, content in _adapters(project, item):
+            before = destination.read_text(encoding="utf-8") if destination.exists() else ""
+            after = _merge_managed_block(before, content)
+            if before != after:
+                atomic_write(destination, after)
+                changed.append(destination)
     return changed
 
 
-def _adapter(project: Path, target: str) -> tuple[Path, str]:
+def _adapters(project: Path, target: str) -> tuple[tuple[Path, str], ...]:
     if target == "generic":
-        return project / "AI-HANDOFF.md", "# AI 会话交接\n\n" + GENERIC_RULE + "\n"
+        return ((project / "AI-HANDOFF.md", "# AI 会话交接\n\n" + GENERIC_RULE + "\n"),)
     if target == "codex":
-        return project / "AGENTS.md", GENERIC_RULE + "\n"
+        return (
+            (project / "AGENTS.md", GENERIC_RULE + "\n"),
+            (project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE),
+        )
     if target == "claude":
-        return project / "CLAUDE.md", GENERIC_RULE + "\n"
+        return ((project / "CLAUDE.md", GENERIC_RULE + "\n"),)
     if target == "gemini":
-        return project / "GEMINI.md", GENERIC_RULE + "\n"
+        return ((project / "GEMINI.md", GENERIC_RULE + "\n"),)
     if target == "cursor":
-        return project / ".cursor/rules/handoff-memory.mdc", CURSOR_RULE
+        return ((project / ".cursor/rules/handoff-memory.mdc", CURSOR_RULE),)
     if target == "skill":
-        return project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE
+        return ((project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE),)
     raise ValueError(f"未知接入目标：{target}")
 
 

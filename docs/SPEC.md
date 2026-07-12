@@ -25,6 +25,8 @@ handoff-memory integrate TARGET [PATH]
 
 支持的 `TARGET`：`generic`、`codex`、`claude`、`cursor`、`gemini`、`skill`、`all`。
 
+`codex` 目标同时生成 `AGENTS.md` 受管规则与 `.agents/skills/session-handoff/SKILL.md` 项目级技能；`skill` 目标保留为只生成可移植技能的独立入口。
+
 所有命令成功返回 `0`；用户输入或状态无效返回 `2`；意外错误返回 `1`。
 
 ## 项目结构

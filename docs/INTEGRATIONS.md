@@ -16,9 +16,12 @@
 handoff-memory integrate codex .
 ```
 
-更新项目根目录 `AGENTS.md` 中的受管区块。新会话仍建议显式说“恢复上次任务”，避免把所有历史无条件注入上下文。
+同时执行两项幂等更新：
 
-这是 Codex 项目规则，不会自动注册名为 `session-handoff` 的个人技能；需要命名技能时，另外使用下文的 Agent Skill 接入方式。
+- 更新项目根目录 `AGENTS.md` 中的受管区块。
+- 创建或更新 `.agents/skills/session-handoff/SKILL.md` 项目级技能。
+
+`.agents/skills` 是 Codex 官方约定的仓库级 Skill 目录；项目规则和技能互补。新会话仍建议显式说“恢复上次任务”，避免把所有历史无条件注入上下文。参见 [Codex Customization：Skills](https://developers.openai.com/codex/concepts/customization#skills)。
 
 ## Claude Code
 
@@ -62,7 +65,7 @@ handoff-memory integrate skill .
 
 ```text
 .claude/skills/session-handoff/     # 某些 Claude Code 配置
-~/.codex/skills/session-handoff/    # Codex 个人级技能目录
+$HOME/.agents/skills/session-handoff/ # Codex 个人级技能目录
 项目约定的其他 skills 目录
 ```
 

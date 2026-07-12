@@ -70,6 +70,18 @@ class CliTests(unittest.TestCase):
 
             self.assertIn("实现恢复流程", output.getvalue())
 
+    def test_init_with_codex_creates_rule_and_project_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            code = main(["init", str(project), "--integrate", "codex"])
+
+            self.assertEqual(code, 0)
+            self.assertTrue((project / "AGENTS.md").is_file())
+            self.assertTrue(
+                (project / ".agents/skills/session-handoff/SKILL.md").is_file()
+            )
+
     def test_user_error_returns_exit_code_two_without_traceback(self) -> None:
         error = io.StringIO()
 

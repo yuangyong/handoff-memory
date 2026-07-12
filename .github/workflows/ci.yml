@@ -47,6 +47,8 @@ jobs:
         run: |
           project="${RUNNER_TEMP}/handoff-smoke"
           handoff-memory init "$project" --name "Wheel Smoke" --integrate codex
+          test -f "$project/AGENTS.md"
+          test -f "$project/.agents/skills/session-handoff/SKILL.md"
           cp examples/ACTIVE.example.md "$project/.ai-memory/ACTIVE.md"
           handoff-memory check "$project"
           handoff-memory save "$project"

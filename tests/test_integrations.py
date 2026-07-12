@@ -20,6 +20,20 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertIn("# 原有规则", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
+    def test_codex_integration_creates_official_project_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            changed = integrate(project, "codex")
+
+            skill = project / ".agents/skills/session-handoff/SKILL.md"
+            self.assertTrue((project / "AGENTS.md").is_file())
+            self.assertTrue(skill.is_file())
+            self.assertEqual(skill.read_text(encoding="utf-8"), SKILL_TEMPLATE)
+            self.assertFalse((project / ".codex/skills/session-handoff/SKILL.md").exists())
+            self.assertEqual(len(changed), 2)
+            self.assertEqual(integrate(project, "codex"), [])
+
     def test_cursor_integration_preserves_existing_rule_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)

@@ -2,6 +2,16 @@
 
 本项目遵循语义化版本。
 
+## [0.5.0] - 2026-07-12
+
+### 新增
+
+- `--integrate codex` 现在同时初始化 `AGENTS.md` 和官方仓库级目录 `.agents/skills/session-handoff/SKILL.md`。
+
+### 改进
+
+- 修正 Codex 个人级 Skill 路径说明，并保留 `--integrate skill` 作为独立的可移植技能入口。
+
 ## [0.4.1] - 2026-07-12
 
 ### 改进

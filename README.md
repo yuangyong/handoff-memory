@@ -58,7 +58,7 @@ handoff-memory init . --name "你的项目" --integrate codex
 └── sessions/       # 只增不改的历史快照
 ```
 
-同时只生成所选 AI 工具的接入规则，例如 Codex 使用 `AGENTS.md`。支持的目标包括：
+同时只生成所选 AI 工具的接入内容。Codex 会同时获得项目规则 `AGENTS.md` 和项目级技能 `.agents/skills/session-handoff/SKILL.md`；其他目标生成各自适配文件。支持的目标包括：
 
 ```text
 codex | claude | cursor | gemini | generic | skill | all
@@ -70,7 +70,7 @@ codex | claude | cursor | gemini | generic | skill | all
 
 > 请按照项目中的跨会话交接规则保存当前会话，核对实际修改和测试结果后更新交接文件。
 
-如果已经通过 `--integrate skill` 生成技能副本并确认客户端会加载该目录，或者已把仓库中的 `skills/session-handoff` 复制到客户端技能目录，也可以直接说“请使用 session-handoff 技能保存当前会话”。`--integrate codex` 生成的是 `AGENTS.md` 项目规则，不等同于安装命名技能。
+使用 `--integrate codex` 后，可以直接说“请使用 session-handoff 技能保存当前会话”。独立的 `--integrate skill` 仍用于只生成可移植技能副本，供其他支持 Skill 的客户端加载。
 
 或者手动编辑 `.ai-memory/ACTIVE.md`，然后运行：
 

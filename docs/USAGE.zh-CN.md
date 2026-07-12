@@ -61,6 +61,8 @@ handoff-memory init D:\project\demo --name "Demo" --integrate codex
 
 将 `codex` 替换为当前使用的客户端。`all` 会生成六种适配文件，只适合确实同时使用多个 AI 工具的项目。
 
+选择 `codex` 时会同时生成 `AGENTS.md` 和 `.agents/skills/session-handoff/SKILL.md`，因此项目规则与命名技能无需分两次初始化。
+
 默认不会覆盖已有文件。只有明确确认 Handoff Memory 自有初始化内容可以重置时才使用：
 
 ```powershell
