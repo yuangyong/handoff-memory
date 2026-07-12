@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--name", help="项目显示名称")
     init.add_argument("--force", action="store_true", help="覆盖 Handoff Memory 自有初始化文件")
     init.add_argument("--integrate", choices=TARGETS, help="同时生成指定 AI 工具接入规则")
+    init.add_argument(
+        "--with-agents-rule",
+        action="store_true",
+        help="为 codex/all 创建或更新 AGENTS.md 中的 Skill 路由",
+    )
 
     save = subparsers.add_parser("save", help="校验并归档当前交接")
     save.add_argument("path", nargs="?", default=".")
@@ -53,6 +58,11 @@ def build_parser() -> argparse.ArgumentParser:
     adapter = subparsers.add_parser("integrate", help="生成 AI 工具接入规则")
     adapter.add_argument("target", choices=TARGETS)
     adapter.add_argument("path", nargs="?", default=".")
+    adapter.add_argument(
+        "--with-agents-rule",
+        action="store_true",
+        help="为 codex/all 创建或更新 AGENTS.md 中的 Skill 路由",
+    )
     return parser
 
 
@@ -63,10 +73,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = parser.parse_args(argv)
         if args.command == "init":
+            if args.with_agents_rule and args.integrate not in {"codex", "all"}:
+                raise HandoffError(
+                    "--with-agents-rule 必须与 --integrate codex 或 --integrate all 一起使用"
+                )
             result = initialize_project(args.path, name=args.name, force=args.force)
             print(f"已{'创建' if result.created else '检查'}记忆目录：{Path(args.path).resolve() / '.ai-memory'}")
             if args.integrate:
-                changed = integrate(args.path, args.integrate)
+                changed = integrate(
+                    args.path,
+                    args.integrate,
+                    with_agents_rule=args.with_agents_rule,
+                )
                 print(f"已更新 {len(changed)} 个 AI 接入文件")
             return 0
         if args.command == "save":
@@ -98,7 +116,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("检查通过：记忆格式有效，未发现高置信度敏感信息。")
             return 0
         if args.command == "integrate":
-            changed = integrate(args.path, args.target)
+            changed = integrate(
+                args.path,
+                args.target,
+                with_agents_rule=args.with_agents_rule,
+            )
             print(f"已更新 {len(changed)} 个 AI 接入文件")
             return 0
         parser.error("缺少命令")

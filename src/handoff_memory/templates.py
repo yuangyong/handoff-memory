@@ -63,6 +63,13 @@ GENERIC_RULE = """<!-- handoff-memory:start -->
 <!-- handoff-memory:end -->"""
 
 
+CODEX_ROUTING_RULE = """<!-- handoff-memory:start -->
+## 会话交接
+
+- 当用户要求保存会话、恢复或继续上次任务时，使用 `session-handoff` Skill。
+<!-- handoff-memory:end -->"""
+
+
 CURSOR_RULE = """---
 description: 跨会话任务交接与恢复
 alwaysApply: true

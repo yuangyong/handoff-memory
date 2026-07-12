@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .core import atomic_write, resolve_project
-from .templates import CURSOR_RULE, GENERIC_RULE, SKILL_TEMPLATE
+from .templates import CODEX_ROUTING_RULE, CURSOR_RULE, GENERIC_RULE, SKILL_TEMPLATE
 
 
 TARGETS = ("generic", "codex", "claude", "cursor", "gemini", "skill", "all")
@@ -13,15 +13,27 @@ _START = "<!-- handoff-memory:start -->"
 _END = "<!-- handoff-memory:end -->"
 
 
-def integrate(path: Path | str, target: str) -> list[Path]:
+def integrate(
+    path: Path | str,
+    target: str,
+    *,
+    with_agents_rule: bool = False,
+) -> list[Path]:
     """生成指定 AI 工具适配；重复执行只更新受管区块。"""
     project = resolve_project(path)
     if target not in TARGETS:
         raise ValueError(f"未知接入目标：{target}")
+    if with_agents_rule and target not in {"codex", "all"}:
+        raise ValueError("--with-agents-rule 仅适用于 codex 或 all 接入目标")
     targets = ("generic", "codex", "claude", "cursor", "gemini", "skill") if target == "all" else (target,)
     changed: list[Path] = []
     for item in targets:
-        for destination, content in _adapters(project, item):
+        adapters = _adapters(
+            project,
+            item,
+            with_agents_rule=with_agents_rule and item == "codex",
+        )
+        for destination, content in adapters:
             before = destination.read_text(encoding="utf-8") if destination.exists() else ""
             after = _merge_managed_block(before, content)
             if before != after:
@@ -30,14 +42,21 @@ def integrate(path: Path | str, target: str) -> list[Path]:
     return changed
 
 
-def _adapters(project: Path, target: str) -> tuple[tuple[Path, str], ...]:
+def _adapters(
+    project: Path,
+    target: str,
+    *,
+    with_agents_rule: bool = False,
+) -> tuple[tuple[Path, str], ...]:
     if target == "generic":
         return ((project / "AI-HANDOFF.md", "# AI 会话交接\n\n" + GENERIC_RULE + "\n"),)
     if target == "codex":
-        return (
-            (project / "AGENTS.md", GENERIC_RULE + "\n"),
-            (project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE),
-        )
+        adapters = [
+            (project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE)
+        ]
+        if with_agents_rule:
+            adapters.append((project / "AGENTS.md", CODEX_ROUTING_RULE + "\n"))
+        return tuple(adapters)
     if target == "claude":
         return ((project / "CLAUDE.md", GENERIC_RULE + "\n"),)
     if target == "gemini":

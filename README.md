@@ -49,6 +49,12 @@ handoff-memory init . --name "你的项目" --integrate codex
 
 把 `codex` 换成正在使用的 `claude`、`cursor`、`gemini`、`generic` 或 `skill`。只有确实同时使用多个客户端时才选择 `all`。
 
+如果希望每次会话都能看到一条 Skill 自动提醒，可以显式生成 `AGENTS.md` 路由：
+
+```powershell
+handoff-memory init . --name "你的项目" --integrate codex --with-agents-rule
+```
+
 这会创建：
 
 ```text
@@ -58,7 +64,7 @@ handoff-memory init . --name "你的项目" --integrate codex
 └── sessions/       # 只增不改的历史快照
 ```
 
-同时只生成所选 AI 工具的接入内容。Codex 会同时获得项目规则 `AGENTS.md` 和项目级技能 `.agents/skills/session-handoff/SKILL.md`；其他目标生成各自适配文件。支持的目标包括：
+同时只生成所选 AI 工具的接入内容。Codex 默认只创建项目级技能 `.agents/skills/session-handoff/SKILL.md`，不读取或修改 `AGENTS.md`。只有指定 `--with-agents-rule` 时，才会创建 `AGENTS.md`，或在已有文件中保留原内容并追加一条按需调用 Skill 的简短规则。支持的目标包括：
 
 ```text
 codex | claude | cursor | gemini | generic | skill | all

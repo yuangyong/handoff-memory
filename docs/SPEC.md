@@ -16,16 +16,16 @@ Handoff Memory 是一个本地优先、跨 AI 工具的会话交接 CLI。它把
 ## 命令契约
 
 ```text
-handoff-memory init [PATH] [--name NAME] [--integrate TARGET]
+handoff-memory init [PATH] [--name NAME] [--integrate TARGET] [--with-agents-rule]
 handoff-memory save [PATH] [--from FILE|-] [--allow-sensitive] [--allow-large]
 handoff-memory resume [PATH] [--format markdown|json]
 handoff-memory check [PATH]
-handoff-memory integrate TARGET [PATH]
+handoff-memory integrate TARGET [PATH] [--with-agents-rule]
 ```
 
 支持的 `TARGET`：`generic`、`codex`、`claude`、`cursor`、`gemini`、`skill`、`all`。
 
-`codex` 目标同时生成 `AGENTS.md` 受管规则与 `.agents/skills/session-handoff/SKILL.md` 项目级技能；`skill` 目标保留为只生成可移植技能的独立入口。
+`codex` 目标默认只生成 `.agents/skills/session-handoff/SKILL.md` 项目级技能，不处理 `AGENTS.md`。显式指定 `--with-agents-rule` 后，无论文件是否存在，都创建或幂等更新简短的受管 Skill 路由，并保留已有文件的区块外内容。该选项只适用于 `codex` 和 `all`。`skill` 目标保留为只生成可移植技能的独立入口。
 
 所有命令成功返回 `0`；用户输入或状态无效返回 `2`；意外错误返回 `1`。
 
@@ -86,6 +86,7 @@ def resolve_project(path: Path) -> Path:
 
 - 使用 `--allow-sensitive` 保存疑似敏感内容。
 - 使用 `--allow-large` 保存 64–256KB 的大型交接。
+- 使用 `--with-agents-rule` 创建或更新 Codex 的 `AGENTS.md` Skill 路由。
 - 使用 `--force` 替换已有初始化文件。
 
 ### 永不执行

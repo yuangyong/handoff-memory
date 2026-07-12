@@ -70,17 +70,72 @@ class CliTests(unittest.TestCase):
 
             self.assertIn("实现恢复流程", output.getvalue())
 
-    def test_init_with_codex_creates_rule_and_project_skill(self) -> None:
+    def test_init_with_codex_creates_skill_without_new_agents_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
 
             code = main(["init", str(project), "--integrate", "codex"])
 
             self.assertEqual(code, 0)
+            self.assertFalse((project / "AGENTS.md").exists())
+            self.assertTrue(
+                (project / ".agents/skills/session-handoff/SKILL.md").is_file()
+            )
+
+    def test_init_with_codex_appends_route_to_existing_agents_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            project.mkdir(exist_ok=True)
+            agents = project / "AGENTS.md"
+            agents.write_text("# 团队原有规则\n", encoding="utf-8")
+
+            code = main(
+                [
+                    "init",
+                    str(project),
+                    "--integrate",
+                    "codex",
+                    "--with-agents-rule",
+                ]
+            )
+
+            self.assertEqual(code, 0)
+            content = agents.read_text(encoding="utf-8")
+            self.assertIn("# 团队原有规则", content)
+            self.assertIn("使用 `session-handoff` Skill", content)
+            self.assertEqual(content.count("handoff-memory:start"), 1)
+
+    def test_integrate_codex_can_create_agents_rule_explicitly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            code = main(
+                ["integrate", "codex", str(project), "--with-agents-rule"]
+            )
+
+            self.assertEqual(code, 0)
             self.assertTrue((project / "AGENTS.md").is_file())
             self.assertTrue(
                 (project / ".agents/skills/session-handoff/SKILL.md").is_file()
             )
+
+    def test_init_rejects_agents_rule_for_non_codex_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            error = io.StringIO()
+
+            with redirect_stderr(error):
+                code = main(
+                    [
+                        "init",
+                        directory,
+                        "--integrate",
+                        "claude",
+                        "--with-agents-rule",
+                    ]
+                )
+
+            self.assertEqual(code, 2)
+            self.assertIn("codex", error.getvalue())
 
     def test_user_error_returns_exit_code_two_without_traceback(self) -> None:
         error = io.StringIO()
