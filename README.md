@@ -20,12 +20,18 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 
 ### 安装
 
-推荐使用 `pipx` 或 `uv`，避免污染项目环境：
+在克隆后的 Handoff Memory 仓库根目录，推荐使用 `pipx` 或 `uv` 安装，避免污染目标项目环境：
 
 ```powershell
 pipx install .
 # 或
 uv tool install .
+```
+
+安装后先确认命令已经进入 `PATH`：
+
+```powershell
+handoff-memory --version
 ```
 
 开发模式：
@@ -62,7 +68,9 @@ codex | claude | cursor | gemini | generic | skill | all
 
 让当前 AI 执行：
 
-> 请使用 session-handoff 技能保存当前会话，核对实际修改和测试结果后更新交接文件。
+> 请按照项目中的跨会话交接规则保存当前会话，核对实际修改和测试结果后更新交接文件。
+
+如果已经通过 `--integrate skill` 生成技能副本并确认客户端会加载该目录，或者已把仓库中的 `skills/session-handoff` 复制到客户端技能目录，也可以直接说“请使用 session-handoff 技能保存当前会话”。`--integrate codex` 生成的是 `AGENTS.md` 项目规则，不等同于安装命名技能。
 
 或者手动编辑 `.ai-memory/ACTIVE.md`，然后运行：
 

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from handoff_memory.integrations import integrate
-from handoff_memory.templates import SKILL_TEMPLATE
+from handoff_memory.templates import GENERIC_RULE, SKILL_TEMPLATE
 
 
 class IntegrationTemplateTests(unittest.TestCase):
@@ -74,3 +74,13 @@ class IntegrationTemplateTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertEqual(repository_skill, SKILL_TEMPLATE)
+
+    def test_rules_do_not_duplicate_active_context_on_resume(self) -> None:
+        self.assertIn("输出已经包含 `ACTIVE.md`", GENERIC_RULE)
+        self.assertNotIn("并阅读 `.ai-memory/ACTIVE.md`", GENERIC_RULE)
+
+    def test_skill_uses_workspace_evidence_and_handles_missing_state(self) -> None:
+        self.assertIn("版本库状态、相关 diff 和实际测试结果", SKILL_TEMPLATE)
+        self.assertIn("没有可恢复的交接", SKILL_TEMPLATE)
+        self.assertIn("不得假装恢复成功", SKILL_TEMPLATE)
+        self.assertIn("不要自动使用 `--allow-sensitive`", SKILL_TEMPLATE)

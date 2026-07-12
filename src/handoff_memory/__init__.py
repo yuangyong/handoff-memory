@@ -1,3 +1,3 @@
 """Handoff Memory：跨 AI 工具的本地会话交接。"""
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"

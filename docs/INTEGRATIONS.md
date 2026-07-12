@@ -18,6 +18,8 @@ handoff-memory integrate codex .
 
 更新项目根目录 `AGENTS.md` 中的受管区块。新会话仍建议显式说“恢复上次任务”，避免把所有历史无条件注入上下文。
 
+这是 Codex 项目规则，不会自动注册名为 `session-handoff` 的个人技能；需要命名技能时，另外使用下文的 Agent Skill 接入方式。
+
 ## Claude Code
 
 ```powershell
@@ -65,6 +67,8 @@ handoff-memory integrate skill .
 ```
 
 仓库还提供 [`skills/session-handoff/SKILL.md`](../skills/session-handoff/SKILL.md)，可以直接复制。
+
+技能恢复时只读取 `resume` 输出，因为输出已经包含 `ACTIVE.md`；保存时会先核对版本库状态、相关 diff 和实际测试结果。若命令不可用或项目没有历史交接，技能必须明确报告，不能模拟成功。
 
 ## 没有工具调用能力的聊天 AI
 

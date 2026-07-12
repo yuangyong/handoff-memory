@@ -17,7 +17,7 @@ Handoff Memory 是一个本地优先、跨 AI 工具的会话交接 CLI。它把
 
 ```text
 handoff-memory init [PATH] [--name NAME] [--integrate TARGET]
-handoff-memory save [PATH] [--from FILE|-] [--allow-sensitive]
+handoff-memory save [PATH] [--from FILE|-] [--allow-sensitive] [--allow-large]
 handoff-memory resume [PATH] [--format markdown|json]
 handoff-memory check [PATH]
 handoff-memory integrate TARGET [PATH]
@@ -83,6 +83,7 @@ def resolve_project(path: Path) -> Path:
 ### 需要用户明确选择
 
 - 使用 `--allow-sensitive` 保存疑似敏感内容。
+- 使用 `--allow-large` 保存 64–256KB 的大型交接。
 - 使用 `--force` 替换已有初始化文件。
 
 ### 永不执行
