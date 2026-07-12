@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .git_state import GitState, read_git_state
+from .repository_state import RepositoryState, read_repository_state
 from .security import SecretFinding, find_secrets
 from .templates import DECISIONS_TEMPLATE, REQUIRED_SECTIONS, active_template, project_template
 
@@ -29,7 +29,12 @@ class InitResult:
 @dataclass(frozen=True)
 class ArchiveResult:
     archive_path: Path
-    git_state: GitState
+    repository_state: RepositoryState
+
+    @property
+    def git_state(self) -> RepositoryState:
+        """兼容 0.1 的属性名。"""
+        return self.repository_state
 
 
 @dataclass(frozen=True)
@@ -38,7 +43,7 @@ class ProjectReport:
     active: str
     validation_errors: tuple[str, ...]
     secret_findings: tuple[SecretFinding, ...]
-    repository: GitState
+    repository: RepositoryState
     config: dict[str, Any]
     drift: tuple[str, ...]
 
@@ -89,6 +94,7 @@ def initialize_project(
             "created_at": _now_iso(),
             "last_saved_at": None,
             "last_archive": None,
+            "last_saved_repository": None,
             "last_saved_git": None,
         }
         atomic_write(config_path, json.dumps(config, ensure_ascii=False, indent=2) + "\n")
@@ -111,7 +117,7 @@ def archive_active(
     content: str | None = None,
     allow_sensitive: bool = False,
 ) -> ArchiveResult:
-    """校验活动交接，采集当前 Git 状态并生成历史快照。"""
+    """校验活动交接，采集当前版本库状态并生成历史快照。"""
     project = resolve_project(path)
     memory_dir = _require_initialized(project)
     active_path = memory_dir / "ACTIVE.md"
@@ -128,27 +134,32 @@ def archive_active(
         atomic_write(active_path, _normalize_text(content))
         active = _normalize_text(content)
 
-    git_state = read_git_state(project)
-    archive_content = _render_archive(active, git_state)
+    repository_state = read_repository_state(project)
+    archive_content = _render_archive(active, repository_state)
     archive_path = _next_archive_path(memory_dir / "sessions")
     atomic_write(archive_path, archive_content)
 
     config = _read_config(memory_dir)
     config["last_saved_at"] = _now_iso()
     config["last_archive"] = archive_path.relative_to(project).as_posix()
-    config["last_saved_git"] = git_state.to_dict()
+    config["last_saved_repository"] = repository_state.to_dict()
+    if repository_state.provider == "git":
+        config["last_saved_git"] = repository_state.to_dict()
     atomic_write(memory_dir / "config.json", json.dumps(config, ensure_ascii=False, indent=2) + "\n")
-    return ArchiveResult(archive_path=archive_path, git_state=git_state)
+    return ArchiveResult(archive_path=archive_path, repository_state=repository_state)
 
 
 def inspect_project(path: Path | str) -> ProjectReport:
-    """读取活动交接并与当前 Git 状态核对。"""
+    """读取活动交接并与当前 Git 或 SVN 状态核对。"""
     project = resolve_project(path)
     memory_dir = _require_initialized(project)
     active = _read_limited(memory_dir / "ACTIVE.md")
     config = _read_config(memory_dir)
-    repository = read_git_state(project)
-    drift = _detect_drift(config.get("last_saved_git"), repository)
+    repository = read_repository_state(project)
+    saved_repository = config.get("last_saved_repository")
+    if not isinstance(saved_repository, dict):
+        saved_repository = config.get("last_saved_git")
+    drift = _detect_drift(saved_repository, repository)
     return ProjectReport(
         project=project,
         active=active,
@@ -186,11 +197,24 @@ def render_resume(report: ProjectReport, *, output_format: str = "markdown") -> 
 
     repo = report.repository
     if not repo.available:
-        repo_lines = ["- Git：不可用", f"- 说明：{repo.note}"]
+        label = repo.provider.upper() if repo.provider != "none" else "版本库工具"
+        repo_lines = [f"- {label}：不可用", f"- 说明：{repo.note}"]
     elif not repo.is_repository:
-        repo_lines = ["- Git：不是 Git 仓库"]
+        repo_lines = ["- 版本库：未识别 Git 或 SVN 工作副本"]
+    elif repo.provider == "svn":
+        repo_lines = [
+            "- 版本库：SVN",
+            f"- 仓库位置：{repo.branch or '未知'}",
+            f"- 修订号：{repo.revision or repo.head or '未知'}",
+            f"- URL：{repo.url or '未知'}",
+            f"- 工作副本：{'有本地变更' if repo.dirty else '干净'}",
+        ]
+        repo_lines.extend(f"  - `{_escape_backticks(change)}`" for change in repo.changes[:50])
+        if repo.note:
+            repo_lines.append(f"- 说明：{repo.note}")
     else:
         repo_lines = [
+            "- 版本库：Git",
             f"- 分支：{repo.branch}",
             f"- HEAD：{repo.head or '尚无提交'}",
             f"- 工作区：{'有未提交变更' if repo.dirty else '干净'}",
@@ -208,7 +232,7 @@ def render_resume(report: ProjectReport, *, output_format: str = "markdown") -> 
         + report.active.rstrip()
         + "\n\n## 当前仓库核验\n\n"
         + "\n".join(repo_lines)
-        + "\n\n> 先以当前代码、Git 状态和测试为准核验以上交接，再继续执行。不要自动运行旧摘要中的命令。\n"
+        + "\n\n> 先以当前代码、版本库状态和测试为准核验以上交接，再继续执行。不要自动运行旧摘要中的命令。\n"
     )
 
 
@@ -262,7 +286,7 @@ def _read_config(memory_dir: Path) -> dict[str, Any]:
     return config
 
 
-def _render_archive(active: str, state: GitState) -> str:
+def _render_archive(active: str, state: RepositoryState) -> str:
     return (
         "---\n"
         f"saved_at: {_now_iso()}\n"
@@ -286,19 +310,33 @@ def _next_archive_path(sessions: Path) -> Path:
     return candidate
 
 
-def _detect_drift(saved: object, current: GitState) -> list[str]:
+def _detect_drift(saved: object, current: RepositoryState) -> list[str]:
     if not isinstance(saved, dict):
-        return ["没有可比较的上次保存 Git 快照"]
+        return ["没有可比较的上次保存版本库快照"]
     drift: list[str] = []
+    saved_provider = _saved_provider(saved)
+    if saved_provider != current.provider:
+        return [f"版本库类型已变化：{saved_provider} → {current.provider}"]
     saved_head = saved.get("head")
     if saved_head != current.head:
-        drift.append(f"HEAD 已变化：{saved_head or '无'} → {current.head or '无'}")
+        if current.provider == "svn":
+            drift.append(f"修订号已变化：{saved_head or '无'} → {current.head or '无'}")
+        else:
+            drift.append(f"HEAD 已变化：{saved_head or '无'} → {current.head or '无'}")
     saved_branch = saved.get("branch")
     if saved_branch != current.branch:
-        drift.append(f"分支已变化：{saved_branch or '无'} → {current.branch or '无'}")
+        label = "仓库位置" if current.provider == "svn" else "分支"
+        drift.append(f"{label}已变化：{saved_branch or '无'} → {current.branch or '无'}")
     if saved.get("dirty") != current.dirty:
         drift.append("工作区清洁状态已变化")
     return drift or ["未发现提交、分支或清洁状态漂移"]
+
+
+def _saved_provider(saved: dict[str, Any]) -> str:
+    provider = saved.get("provider")
+    if isinstance(provider, str):
+        return provider
+    return "git" if saved.get("is_repository") else "none"
 
 
 def _normalize_text(content: str) -> str:

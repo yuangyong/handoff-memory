@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from . import __version__
 from .core import HandoffError, archive_active, initialize_project, inspect_project, render_resume
 from .integrations import TARGETS, integrate
 
@@ -16,7 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="handoff-memory",
         description="本地优先、跨 AI 工具的会话交接记忆 CLI",
     )
-    parser.add_argument("--version", action="version", version="handoff-memory 0.1.0")
+    parser.add_argument("--version", action="version", version=f"handoff-memory {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     init = subparsers.add_parser("init", help="初始化项目记忆目录")

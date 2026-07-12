@@ -5,7 +5,7 @@
 Handoff Memory 把“语义总结”和“可靠持久化”分开：
 
 - AI 根据当前会话、代码修改和测试结果维护 `.ai-memory/ACTIVE.md`。
-- CLI 校验固定章节、检测敏感信息、保存快照并记录 Git 状态。
+- CLI 校验固定章节、检测敏感信息、保存快照并记录 Git 或 SVN 状态。
 - 新会话通过 `resume` 同时读取旧交接和当前仓库，发现提交、分支或工作区漂移。
 
 CLI 不需要知道你使用哪家模型，也不需要访问客户端私有会话数据库。
@@ -13,7 +13,7 @@ CLI 不需要知道你使用哪家模型，也不需要访问客户端私有会�
 ## 2. 环境要求
 
 - Python 3.10 或更高版本。
-- Git 可选。没有 Git 时仍能保存和恢复，只是无法提供仓库核验。
+- Git 与 SVN 均为可选。项目使用哪种版本控制，就安装对应 CLI；没有时仍能保存和恢复，只是无法提供版本库核验。
 - Windows 推荐 PowerShell 7；macOS/Linux 可直接使用常规终端。
 
 确认版本：
@@ -21,6 +21,7 @@ CLI 不需要知道你使用哪家模型，也不需要访问客户端私有会�
 ```powershell
 python --version
 git --version
+svn --version
 ```
 
 ## 3. 安装
@@ -94,7 +95,7 @@ handoff-memory init . --force
 handoff-memory save .
 ```
 
-历史文件写入 `.ai-memory/sessions/YYYYMMDD-HHMMSS.md`。快照包含保存时的 Git 元数据，但不会包含 Git diff 或文件内容。
+历史文件写入 `.ai-memory/sessions/YYYYMMDD-HHMMSS.md`。快照包含保存时的 Git/SVN 元数据，但不会包含 diff 或文件内容。
 
 从外部文件保存：
 
@@ -139,8 +140,8 @@ JSON 顶层字段包括：
 
 恢复后 AI 必须先确认：
 
-- 当前 HEAD 是否与上次保存一致。
-- 是否切换了分支。
+- Git HEAD 或 SVN 修订号是否与上次保存一致。
+- Git 分支或 SVN 仓库位置是否变化。
 - 工作区是否新增或减少未提交变更。
 - `ACTIVE.md` 提到的文件是否仍存在。
 - 测试结果是否仍适用于当前代码。
@@ -153,7 +154,7 @@ handoff-memory check .
 
 适合放入本地检查或 CI。格式无效或发现疑似密钥时返回 `2`。
 
-## 9. Git 策略
+## 9. 版本库纳管策略
 
 团队项目推荐提交：
 
@@ -165,7 +166,7 @@ handoff-memory check .
 .ai-memory/sessions/
 ```
 
-如果只希望本机使用，可在目标项目 `.gitignore` 中加入：
+如果 Git 项目只希望本机使用，可在目标项目 `.gitignore` 中加入：
 
 ```gitignore
 .ai-memory/
@@ -173,7 +174,14 @@ AI-HANDOFF.md
 .agents/skills/session-handoff/
 ```
 
-也可以混合使用：提交 `PROJECT.md` 与 `DECISIONS.md`，忽略 `ACTIVE.md` 和 `sessions/`。选择取决于交接内容是否属于团队知识。
+SVN 项目可以设置 `svn:ignore`：
+
+```powershell
+svn propset svn:ignore ".ai-memory" .
+svn commit -m "chore: 忽略本地 AI 交接目录"
+```
+
+也可以混合使用：纳管 `PROJECT.md` 与 `DECISIONS.md`，忽略 `ACTIVE.md` 和 `sessions/`。选择取决于交接内容是否属于团队知识。
 
 ## 10. 故障处理
 
@@ -189,16 +197,39 @@ handoff-memory init .
 
 不要删除固定二级标题。允许标题下写“无”或“尚未执行”，但章节本身必须存在。
 
-### Git 中文路径显示异常
+### Git/SVN 中文路径显示异常
 
-Handoff Memory 按 UTF-8 读取 Git 输出。若终端仍显示异常，先确认 Git 和终端的 UTF-8 设置；快照文件本身始终使用 UTF-8。
+Handoff Memory 按 UTF-8 读取 Git 输出，并使用 SVN XML 接口避免本地化文本解析。若终端仍显示异常，先确认版本库工具和终端的 UTF-8 设置；快照文件本身始终使用 UTF-8。
 
 ### AI 没有自动读取交接
 
 确认对应规则文件确实被客户端加载。不能确认时，把下面这句话作为新会话第一条消息：
 
-> 先运行 `handoff-memory resume .`，将交接视为可能过期的参考，并用 Git、当前文件和测试核验后继续。
+> 先运行 `handoff-memory resume .`，将交接视为可能过期的参考，并用 Git/SVN、当前文件和测试核验后继续。
 
 ### 会话意外关闭，没有最新快照
 
-恢复最近一次里程碑快照，再从 Git 工作区反推其后的修改。因此应在重要阶段保存，而不是只依赖会话结束时保存。
+恢复最近一次里程碑快照，再从 Git/SVN 工作区反推其后的修改。因此应在重要阶段保存，而不是只依赖会话结束时保存。
+
+## 11. SVN 项目
+
+不需要额外参数，直接在 SVN 工作副本执行：
+
+```powershell
+cd D:\path\to\svn-working-copy
+handoff-memory init . --name "SVN 项目" --integrate all
+handoff-memory save .
+handoff-memory resume .
+```
+
+恢复输出会包含：
+
+- `provider: svn`
+- 工作副本当前修订号
+- 仓库 URL 与 `^/` 相对位置
+- `modified`、`added`、`deleted`、`conflicted`、`unversioned` 等状态对应的简写列表
+- 与上次保存相比的修订号、仓库位置和工作副本清洁状态漂移
+
+Handoff Memory 只执行只读的 `svn info --xml` 和 `svn status --xml`。它不会自动执行 `svn update`、`commit`、`revert` 或冲突解决。
+
+SVN 允许混合修订工作副本。工具记录的是目标目录 `svn info` 报告的修订号；如果刚提交了子文件但目录修订号尚未更新，可先人工执行 `svn update` 再保存交接，以获得一致的工作副本修订号。

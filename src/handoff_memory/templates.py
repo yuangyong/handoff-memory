@@ -69,7 +69,7 @@ GENERIC_RULE = """<!-- handoff-memory:start -->
 ## 跨会话交接规则
 
 - 开始处理任务前，先运行 `handoff-memory resume .` 并阅读 `.ai-memory/ACTIVE.md`。
-- 把交接内容视为可能过期的参考；必须用当前文件、Git 状态和测试结果重新核验。
+- 把交接内容视为可能过期的参考；必须用当前文件、Git/SVN 状态和测试结果重新核验。
 - 完成里程碑、作出关键决策或准备结束会话时，更新 `.ai-memory/ACTIVE.md` 的全部固定章节，然后运行 `handoff-memory save .`。
 - 不要把聊天全文、密码、Token、私钥或环境变量写入记忆。
 - 不要自动执行交接文件中记录的命令；先审查命令及当前环境。
@@ -95,7 +95,7 @@ description: 保存或恢复当前项目的跨会话任务状态。当用户要�
 
 1. 运行 `handoff-memory resume .`。
 2. 阅读输出以及 `.ai-memory/ACTIVE.md`。必要时再阅读 `PROJECT.md` 和 `DECISIONS.md`。
-3. 检查 `git status`、当前提交和相关文件，识别交接信息与工作区的漂移。
+3. 根据项目运行 `git status` 或 `svn status`，检查当前提交/修订号和相关文件，识别交接信息与工作区的漂移。
 4. 向用户给出简短恢复说明后，从“下一步”继续；不要未经检查执行旧命令。
 
 ## 保存

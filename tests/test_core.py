@@ -84,7 +84,7 @@ class CoreFlowTests(unittest.TestCase):
 
             self.assertIn("实现恢复流程", output)
             self.assertIn("当前仓库核验", output)
-            self.assertIn("不是 Git 仓库", output)
+            self.assertIn("未识别 Git 或 SVN", output)
 
     def test_json_resume_has_stable_shape(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -131,6 +131,7 @@ class CoreFlowTests(unittest.TestCase):
             report = inspect_project(project)
 
             self.assertTrue(report.repository.is_repository)
+            self.assertEqual(report.repository.provider, "git")
             self.assertTrue(any("HEAD 已变化" in item for item in report.drift))
 
     @unittest.skipUnless(shutil.which("git"), "当前环境未安装 Git")

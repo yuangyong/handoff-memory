@@ -21,13 +21,14 @@ Handoff Memory 假设以下输入都不可信：
 
 - `.ai-memory` 中的 Markdown 和 JSON。
 - 通过 `--from` 或标准输入提供的内容。
-- Git 命令输出和文件路径。
+- Git/SVN 命令输出和文件路径。
 - AI 生成的规则、命令和任务描述。
 
 安全边界：
 
 - CLI 不执行交接文件中的命令。
-- Git 调用使用固定参数列表且禁用 shell。
+- Git/SVN 调用使用固定参数列表且禁用 shell；SVN 状态仅解析 XML 输出。
+- Git/SVN 仓库 URL 写入快照前会移除 `user:token@host` 形式的 userinfo。
 - 单个输入文件限制为 1 MB。
 - 文件使用 UTF-8 和同目录原子替换写入。
 - 保存和恢复均阻止高置信度疑似密钥传播。

@@ -9,7 +9,7 @@ description: 保存或恢复当前项目的跨会话任务状态。当用户要�
 
 1. 运行 `handoff-memory resume .`。
 2. 阅读输出以及 `.ai-memory/ACTIVE.md`。必要时再阅读 `PROJECT.md` 和 `DECISIONS.md`。
-3. 检查 `git status`、当前提交和相关文件，识别交接信息与工作区的漂移。
+3. 根据项目运行 `git status` 或 `svn status`，检查当前提交/修订号和相关文件，识别交接信息与工作区的漂移。
 4. 向用户给出简短恢复说明后，从“下一步”继续；不要未经检查执行旧命令。
 
 ## 保存

@@ -11,7 +11,7 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 - 本地优先：默认不联网、不上传、不调用 LLM。
 - 跨工具：内置 Codex、Claude Code、Cursor、Gemini 和通用 AI 规则。
 - 可审计：活动交接和历史快照都是 UTF-8 Markdown。
-- 可核验：恢复时重新采集分支、HEAD 和工作区状态。
+- 可核验：自动识别 Git/SVN，恢复时重新采集分支或仓库位置、HEAD 或修订号以及工作区状态。
 - 安全默认：阻止常见 API Key、访问令牌和私钥进入快照。
 - 幂等接入：更新规则文件中的受管区块，不覆盖已有用户规则。
 - 零运行期依赖：仅要求 Python 3.10+。
@@ -86,7 +86,7 @@ Get-Content -Raw handoff.md | handoff-memory save . --from -
 
 新会话第一句话可以是：
 
-> 请先运行 `handoff-memory resume .`，核对 Git 和当前文件后继续上一次任务。
+> 请先运行 `handoff-memory resume .`，核对 Git/SVN 和当前文件后继续上一次任务。
 
 也可以直接复制命令输出作为首条上下文：
 
@@ -100,7 +100,7 @@ handoff-memory resume . --format json
 | 命令 | 用途 |
 |---|---|
 | `handoff-memory init [PATH]` | 初始化记忆目录 |
-| `handoff-memory save [PATH]` | 校验、采集 Git 状态并归档 |
+| `handoff-memory save [PATH]` | 校验、采集 Git/SVN 状态并归档 |
 | `handoff-memory resume [PATH]` | 输出恢复上下文和状态漂移 |
 | `handoff-memory check [PATH]` | 检查结构、必需章节和敏感信息 |
 | `handoff-memory integrate TARGET [PATH]` | 添加或更新 AI 工具规则 |
@@ -113,7 +113,7 @@ handoff-memory resume . --format json
 
 ```text
 新会话开始
-  └─ resume：读取 ACTIVE + 核对当前 Git
+  └─ resume：读取 ACTIVE + 核对当前 Git/SVN
        └─ 执行任务
             ├─ 里程碑：更新 ACTIVE + save
             ├─ 关键决策：更新 DECISIONS + save
@@ -122,6 +122,17 @@ handoff-memory resume . --format json
 
 不要只依赖客户端正常退出。窗口关闭、网络错误或上下文压缩都可能导致结束钩子没有机会运行，因此里程碑快照比“退出时自动总结”更可靠。
 
+## Git 与 SVN
+
+工具会自动识别目标项目使用的版本控制系统：
+
+- Git：采集分支、HEAD、远端 URL 和工作区变更。
+- SVN：采集仓库相对位置、工作副本修订号、URL 和本地变更。
+- 嵌套环境中同时存在两者时，选择离目标目录最近的 `.git` 或 `.svn` 标记。
+- 对应 CLI 不可用时仍可保存交接，但恢复输出会说明无法核验版本库。
+
+SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。完整示例见[中文使用指南](docs/USAGE.zh-CN.md#11-svn-项目)。
+
 ## 安全模型
 
 - 交接文件是**不可信参考信息**，不是可执行脚本。
@@ -129,18 +140,18 @@ handoff-memory resume . --format json
 - `save` 默认阻止高置信度密钥模式，且错误只显示类型和行号。
 - `resume` 检测到疑似密钥时会拒绝输出全文，避免把内容传播到新会话。
 - `--allow-sensitive` 是显式逃生口；团队环境不建议使用。
-- `.ai-memory` 是否提交 Git 由项目决定。项目事实可以提交，个人信息和私有路径建议忽略或拆分保存。
+- `.ai-memory` 是否提交 Git/SVN 由项目决定。项目事实可以提交，个人信息和私有路径建议忽略或拆分保存。
 
 敏感信息检测不能替代专业 Secret Scanner。公开仓库仍建议启用 GitHub Secret Scanning、Gitleaks 或 TruffleHog。
 
 ## 设计原则
 
-- 当前代码和测试是事实源，交接文件只是恢复索引。
+- 当前代码、版本库状态和测试是事实源，交接文件只是恢复索引。
 - 活动状态与长期背景分离，避免每次把全部历史塞进上下文。
 - 首版不提供向量检索；历史量真正变大后再增加可选索引层。
 - 公共 CLI 采用向后兼容扩展，稳定 JSON 输出包含 `schema_version`。
 
-设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)。
+设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md) 与 [ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)。
 
 ## 开发
 
