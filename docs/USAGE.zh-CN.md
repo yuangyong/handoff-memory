@@ -67,7 +67,7 @@ handoff-memory init D:\project\demo --name "Demo"
 handoff-memory init D:\project\demo --name "Demo" --select-tools
 ```
 
-列表支持编号多选、`all` 全选和直接回车跳过。交互模式必须显式开启，因此 CI、安装脚本以及标准输入被占用的场景不会意外等待输入。
+列表支持编号多选、`all` 全选和直接回车跳过。每个具名客户端都会生成原生项目级 Skill；具有独立规则文件的客户端还会同时生成规则。交互模式必须显式开启，因此 CI、安装脚本以及标准输入被占用的场景不会意外等待输入。
 
 同时安装指定客户端规则：
 
@@ -77,7 +77,7 @@ handoff-memory init D:\project\demo --name "Demo" --integrate codex
 
 将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。`all` 会生成全部已支持适配文件，只适合确实同时使用多个 AI 工具的项目。
 
-选择 `codex` 或 `opencode` 时默认只生成对应项目级 Skill，不会处理 `AGENTS.md`。需要自动提醒时增加 `--with-agents-rule`；届时不存在的 `AGENTS.md` 会被创建，已有文件则保留原内容并追加受管路由。
+所有具名目标都会生成对应项目级 `session-handoff` Skill。`codex` 或 `opencode` 默认不会处理 `AGENTS.md`；需要常驻自动提醒时增加 `--with-agents-rule`，届时不存在则创建，已有文件则保留原内容并追加受管路由。
 
 默认不会覆盖已有文件。只有明确确认 Handoff Memory 自有初始化内容可以重置时才使用：
 

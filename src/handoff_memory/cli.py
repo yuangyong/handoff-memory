@@ -24,7 +24,7 @@ AI_TOOL_LABELS = {
     "codex": "OpenAI Codex",
     "claude": "Claude Code",
     "cursor": "Cursor",
-    "gemini": "Gemini CLI / Code Assist",
+    "gemini": "Gemini CLI",
     "copilot": "GitHub Copilot",
     "windsurf": "Windsurf",
     "cline": "Cline",
@@ -133,21 +133,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapter = subparsers.add_parser(
         "integrate",
-        help="生成或更新 AI 工具接入规则",
-        description="为指定客户端生成幂等的项目级规则；保留文件中受管区块外的原有内容。",
+        help="生成或更新 AI 工具规则与项目级 Skill",
+        description="为指定客户端生成幂等规则和原生项目级 Skill；保留受管区块外的原有内容。",
         formatter_class=_FORMATTER,
-        epilog="""主要目标与输出：
+        epilog="""主要目标与项目级 Skill：
   codex     OpenAI Codex      .agents/skills/session-handoff/SKILL.md
   opencode  OpenCode          .opencode/skills/session-handoff/SKILL.md
-  claude    Claude Code       CLAUDE.md
-  cursor    Cursor            .cursor/rules/handoff-memory.mdc
-  gemini    Gemini            GEMINI.md
-  copilot   GitHub Copilot    .github/copilot-instructions.md
-  windsurf  Windsurf          .windsurf/rules/handoff-memory.md
-  cline     Cline             .clinerules/handoff-memory.md
-  kiro      Kiro              .kiro/steering/handoff-memory.md
-  trae      TRAE              .trae/rules/project_rules.md
-  qoder     Qoder             .qoder/rules/handoff-memory.md
+  claude    Claude Code       .claude/skills/session-handoff/SKILL.md
+  cursor    Cursor            .cursor/skills/session-handoff/SKILL.md
+  gemini    Gemini CLI        .gemini/skills/session-handoff/SKILL.md
+  copilot   GitHub Copilot    .github/skills/session-handoff/SKILL.md
+  windsurf  Windsurf          .windsurf/skills/session-handoff/SKILL.md
+  cline     Cline             .cline/skills/session-handoff/SKILL.md
+  kiro      Kiro              .kiro/skills/session-handoff/SKILL.md
+  trae      TRAE              .trae/skills/session-handoff/SKILL.md
+  qoder     Qoder             .qoder/skills/session-handoff/SKILL.md
+
+规则输出：
+  claude CLAUDE.md；cursor .cursor/rules/handoff-memory.mdc；gemini GEMINI.md
+  copilot .github/copilot-instructions.md；windsurf .windsurf/rules/handoff-memory.md
+  cline .clinerules/handoff-memory.md；kiro .kiro/steering/handoff-memory.md
+  trae .trae/rules/project_rules.md；qoder .qoder/rules/handoff-memory.md
+  Codex/OpenCode 的 AGENTS.md 路由需显式开启。
 
 其他目标：generic 生成通用规则，skill 生成可移植 Skill，all 生成全部适配。
 

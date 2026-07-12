@@ -2,6 +2,14 @@
 
 本项目遵循语义化版本。
 
+## [0.8.0] - 2026-07-12
+
+### 改进
+
+- 11 个具名 AI 工具接入现在都会把 `session-handoff` Skill 写入各自官方项目目录，不再只有 Codex 和 OpenCode 生成技能。
+- Claude、Cursor、Gemini CLI、GitHub Copilot、Windsurf、Cline、Kiro、TRAE 和 Qoder 接入由“仅规则”升级为“规则 + Skill”。
+- `all` 同步生成全部原生项目 Skill；帮助、规格、集成文档和 Wheel 冒烟验证展示并检查对应目录。
+
 ## [0.7.0] - 2026-07-12
 
 ### 新增

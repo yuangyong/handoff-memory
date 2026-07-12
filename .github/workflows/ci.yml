@@ -55,8 +55,11 @@ jobs:
           interactive_project="${RUNNER_TEMP}/handoff-interactive"
           printf '5,9,10,11\n' | handoff-memory init "$interactive_project" --select-tools
           test -f "$interactive_project/.github/copilot-instructions.md"
+          test -f "$interactive_project/.github/skills/session-handoff/SKILL.md"
           test -f "$interactive_project/.trae/rules/project_rules.md"
+          test -f "$interactive_project/.trae/skills/session-handoff/SKILL.md"
           test -f "$interactive_project/.qoder/rules/handoff-memory.md"
+          test -f "$interactive_project/.qoder/skills/session-handoff/SKILL.md"
           test -f "$interactive_project/.opencode/skills/session-handoff/SKILL.md"
           cp examples/ACTIVE.example.md "$project/.ai-memory/ACTIVE.md"
           handoff-memory check "$project"

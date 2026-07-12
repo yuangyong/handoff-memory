@@ -2,7 +2,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from handoff_memory.integrations import AI_TOOL_TARGETS, TARGETS, integrate
+from handoff_memory.integrations import (
+    AI_TOOL_TARGETS,
+    PROJECT_SKILL_PATHS,
+    TARGETS,
+    integrate,
+)
 from handoff_memory.templates import GENERIC_RULE, SKILL_TEMPLATE
 
 
@@ -33,7 +38,6 @@ class IntegrationTemplateTests(unittest.TestCase):
             "kiro": ".kiro/steering/handoff-memory.md",
             "trae": ".trae/rules/project_rules.md",
             "qoder": ".qoder/rules/handoff-memory.md",
-            "opencode": ".opencode/skills/session-handoff/SKILL.md",
         }
 
         with tempfile.TemporaryDirectory() as directory:
@@ -42,9 +46,35 @@ class IntegrationTemplateTests(unittest.TestCase):
                 with self.subTest(target=target):
                     changed = integrate(project, target)
                     destination = project / relative_path
-                    self.assertEqual(changed, [destination])
+                    self.assertIn(destination, changed)
                     self.assertTrue(destination.is_file())
                     self.assertIn("handoff-memory:start", destination.read_text(encoding="utf-8"))
+                    self.assertEqual(integrate(project, target), [])
+
+    def test_every_named_ai_tool_creates_skill_in_native_project_directory(self) -> None:
+        expected_paths = {
+            "codex": ".agents/skills/session-handoff/SKILL.md",
+            "claude": ".claude/skills/session-handoff/SKILL.md",
+            "cursor": ".cursor/skills/session-handoff/SKILL.md",
+            "gemini": ".gemini/skills/session-handoff/SKILL.md",
+            "copilot": ".github/skills/session-handoff/SKILL.md",
+            "windsurf": ".windsurf/skills/session-handoff/SKILL.md",
+            "cline": ".cline/skills/session-handoff/SKILL.md",
+            "kiro": ".kiro/skills/session-handoff/SKILL.md",
+            "trae": ".trae/skills/session-handoff/SKILL.md",
+            "qoder": ".qoder/skills/session-handoff/SKILL.md",
+            "opencode": ".opencode/skills/session-handoff/SKILL.md",
+        }
+
+        self.assertEqual(PROJECT_SKILL_PATHS, expected_paths)
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            for target, relative_path in expected_paths.items():
+                with self.subTest(target=target):
+                    changed = integrate(project, target)
+                    skill = project / relative_path
+                    self.assertIn(skill, changed)
+                    self.assertEqual(skill.read_text(encoding="utf-8"), SKILL_TEMPLATE)
                     self.assertEqual(integrate(project, target), [])
 
     def test_codex_integration_leaves_existing_agents_untouched_by_default(self) -> None:
@@ -142,7 +172,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             changed = integrate(project, "all", with_agents_rule=True)
 
             self.assertTrue((project / "AGENTS.md").is_file())
-            self.assertEqual(len(changed), 13)
+            self.assertEqual(len(changed), 22)
 
     def test_cursor_integration_preserves_existing_rule_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -187,7 +217,9 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertTrue(
                 (project / ".opencode/skills/session-handoff/SKILL.md").is_file()
             )
-            self.assertEqual(len(changed), 12)
+            for relative_path in PROJECT_SKILL_PATHS.values():
+                self.assertTrue((project / relative_path).is_file())
+            self.assertEqual(len(changed), 21)
 
             unchanged = integrate(project, "all")
             self.assertEqual(unchanged, [])

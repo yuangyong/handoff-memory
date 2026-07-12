@@ -49,6 +49,8 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("OpenCode", content)
         self.assertIn(".opencode/skills/session-handoff/SKILL.md", content)
+        self.assertIn(".cursor/skills/session-handoff/SKILL.md", content)
+        self.assertIn(".trae/skills/session-handoff/SKILL.md", content)
         self.assertIn("TRAE", content)
         self.assertIn(".trae/rules/project_rules.md", content)
         self.assertNotIn("Roo Code", content)
@@ -139,7 +141,13 @@ class CliTests(unittest.TestCase):
                 (project / ".cursor/rules/handoff-memory.mdc").is_file()
             )
             self.assertTrue(
+                (project / ".cursor/skills/session-handoff/SKILL.md").is_file()
+            )
+            self.assertTrue(
                 (project / ".github/copilot-instructions.md").is_file()
+            )
+            self.assertTrue(
+                (project / ".github/skills/session-handoff/SKILL.md").is_file()
             )
             self.assertFalse((project / "CLAUDE.md").exists())
             self.assertIn("Codex", output.getvalue())

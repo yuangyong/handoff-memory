@@ -9,11 +9,11 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 ## 特性
 
 - 本地优先：默认不联网、不上传、不调用 LLM。
-- 跨工具：内置 11 个主流 AI 编程客户端和通用 AI 规则适配。
+- 跨工具：内置 11 个主流 AI 编程客户端的项目规则与原生项目级 Skill 适配。
 - 可审计：活动交接和历史快照都是 UTF-8 Markdown。
 - 可核验：自动识别 Git/SVN，恢复时重新采集分支或仓库位置、HEAD 或修订号以及工作区状态。
 - 安全默认：阻止常见 API Key、访问令牌和私钥进入快照。
-- 幂等接入：更新规则文件中的受管区块，不覆盖已有用户规则。
+- 幂等接入：更新规则受管区块和 Skill，不覆盖受管区块外的用户内容。
 - 零运行期依赖：仅要求 Python 3.10+。
 
 ## 快速开始
@@ -48,7 +48,7 @@ cd D:\path\to\your-project
 handoff-memory init . --name "你的项目" --select-tools
 ```
 
-命令会显示编号列表；输入一个或多个编号（逗号分隔），也可以输入 `all`。直接回车只初始化核心记忆目录，不接入客户端规则。该交互仅在显式指定 `--select-tools` 时出现，不会阻塞脚本或 CI。
+命令会显示编号列表；输入一个或多个编号（逗号分隔），也可以输入 `all`。直接回车只初始化核心记忆目录，不接入客户端规则和 Skill。该交互仅在显式指定 `--select-tools` 时出现，不会阻塞脚本或 CI。
 
 非交互环境继续使用稳定的参数形式：
 
@@ -71,14 +71,14 @@ handoff-memory init . --name "你的项目" --integrate codex --with-agents-rule
 └── sessions/       # 只增不改的历史快照
 ```
 
-同时只生成所选 AI 工具的接入内容。Codex 和 OpenCode 默认只创建各自的项目级 Skill，不读取或修改 `AGENTS.md`。只有指定 `--with-agents-rule` 时，才会创建 `AGENTS.md`，或在已有文件中保留原内容并追加一条按需调用 Skill 的简短规则。具名客户端包括：
+每个具名目标都会生成原生项目级 `session-handoff` Skill；具有独立规则文件的客户端还会同时生成规则。Codex 和 OpenCode 默认不读取或修改 `AGENTS.md`；只有指定 `--with-agents-rule` 时，才会创建该文件，或保留已有内容并追加一条按需调用 Skill 的简短规则。具名客户端包括：
 
 ```text
 codex | claude | cursor | gemini | copilot | windsurf
 cline | kiro | trae | qoder | opencode
 ```
 
-另有 `generic`、`skill` 和代表全部已支持适配器的 `all`。完整目标和规则路径可运行 `handoff-memory help integrate` 查看。
+另有 `generic`、`skill` 和代表全部已支持适配器的 `all`。完整规则与 Skill 路径可运行 `handoff-memory help integrate` 查看。
 
 ### 保存当前会话
 
@@ -86,7 +86,7 @@ cline | kiro | trae | qoder | opencode
 
 > 请按照项目中的跨会话交接规则保存当前会话，核对实际修改和测试结果后更新交接文件。
 
-使用 `--integrate codex` 后，可以直接说“请使用 session-handoff 技能保存当前会话”。独立的 `--integrate skill` 仍用于只生成可移植技能副本，供其他支持 Skill 的客户端加载。
+使用任一具名目标接入后，可以直接说“请使用 session-handoff 技能保存当前会话”。独立的 `--integrate skill` 仍用于只生成 `.agents/skills` 可移植副本。
 
 或者手动编辑 `.ai-memory/ACTIVE.md`，然后运行：
 
@@ -123,7 +123,7 @@ handoff-memory resume . --format json
 | `handoff-memory save [PATH]` | 校验、采集 Git/SVN 状态并归档 |
 | `handoff-memory resume [PATH]` | 输出恢复上下文和状态漂移 |
 | `handoff-memory check [PATH]` | 检查结构、必需章节和敏感信息 |
-| `handoff-memory integrate TARGET [PATH]` | 添加或更新 AI 工具规则 |
+| `handoff-memory integrate TARGET [PATH]` | 添加或更新 AI 工具规则与项目级 Skill |
 
 执行 `handoff-memory init --help` 可查看初始化参数，或用 `handoff-memory init . --select-tools` 交互选择客户端。
 
@@ -180,7 +180,7 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 - 首版不提供向量检索；历史量真正变大后再增加可选索引层。
 - 公共 CLI 采用向后兼容扩展，稳定 JSON 输出包含 `schema_version`。
 
-设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md) 与 [ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md)。
+设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md) 与 [ADR-004](docs/decisions/ADR-004-native-project-skills.md)。
 
 ## 开发
 
