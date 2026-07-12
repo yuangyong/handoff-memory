@@ -4,9 +4,9 @@
 
 Handoff Memory 把“语义总结”和“可靠持久化”分开：
 
-- AI 根据当前会话、代码修改和测试结果维护 `.ai-memory/ACTIVE.md`。
+- AI 根据当前会话、当前产物、来源或人工确认，以及可用的版本库和测试结果维护 `.ai-memory/ACTIVE.md`。
 - CLI 校验固定章节、检测敏感信息、保存快照并记录 Git 或 SVN 状态。
-- 新会话通过 `resume` 同时读取旧交接和当前仓库，发现提交、分支或工作区漂移。
+- 新会话通过 `resume` 同时读取旧交接和当前状态；存在 Git/SVN 时额外发现提交、分支、修订号或工作区漂移。
 
 CLI 不需要知道你使用哪家模型，也不需要访问客户端私有会话数据库。
 
@@ -62,23 +62,23 @@ uv tool install . --force
 ### 升级后对已有项目的影响
 
 - **记忆目录**：不需要重新 `init`，已有的 `.ai-memory/ACTIVE.md` 和历史快照不受影响。
-- **规则与 Skill**：刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。命令只替换 `<!-- handoff-memory:start/end -->` 区块；YAML frontmatter 和其他区块外内容会原样保留。
-- **命令兼容性**：`save` 和 `resume` 的 JSON 输出包含 `schema_version`，新版本会保持向后兼容。
+- **规则与 Skill**：刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。规则只替换 `<!-- handoff-memory:start/end -->` 区块；Skill 还会同步升级触发用 YAML frontmatter。受管区块外的用户正文会原样保留。
+- **命令入口**：`hmem` 是唯一终端命令；发行包名 `handoff-memory` 和模块名 `handoff_memory` 保持不变。`save`、`resume`、`check`、`history` 和 `show` 的 JSON 输出包含 `schema_version`，新版本会保持向后兼容。
 
 ```powershell
 # 只刷新 Antigravity Skill
 cd D:\your-project
-handoff-memory integrate antigravity .
+hmem integrate antigravity .
 # 同时刷新规则与 Skill
-handoff-memory integrate antigravity . --with-rules
+hmem integrate antigravity . --with-rules
 ```
 
 安装后可使用独立帮助命令。未指定主题时显示总体说明，指定命令时显示参数、默认行为和示例：
 
 ```powershell
-handoff-memory help
-handoff-memory help init
-handoff-memory help integrate
+hmem help
+hmem help init
+hmem help integrate
 ```
 
 ## 4. 初始化目标项目
@@ -86,13 +86,13 @@ handoff-memory help integrate
 只初始化核心目录：
 
 ```powershell
-handoff-memory init D:\project\demo --name "Demo"
+hmem init D:\project\demo --name "Demo"
 ```
 
 交互选择一个或多个 AI 编程工具：
 
 ```powershell
-handoff-memory init D:\project\demo --name "Demo" --select-tools
+hmem init D:\project\demo --name "Demo" --select-tools
 ```
 
 列表支持编号多选、`all` 全选和直接回车跳过。每个具名客户端默认只生成原生项目级 Skill；只有增加 `--with-rules` 才会同时生成客户端规则。交互模式必须显式开启，因此 CI、安装脚本以及标准输入被占用的场景不会意外等待输入。
@@ -100,18 +100,18 @@ handoff-memory init D:\project\demo --name "Demo" --select-tools
 接入指定客户端：
 
 ```powershell
-handoff-memory init D:\project\demo --name "Demo" --integrate codex
+hmem init D:\project\demo --name "Demo" --integrate codex
 ```
 
 将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、Antigravity IDE、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。
 
 在 `--select-tools` 菜单中输入 `all`，或使用 `--integrate all`，都会选择全部 12 个具名客户端，只适合确实同时使用多个 AI 工具的项目。`generic` 和 `skill` 是独立辅助目标，不会被 `all` 隐式执行。
 
-所有具名目标默认只生成对应项目级 `session-handoff` Skill。需要常驻自动提醒时增加 `--with-rules`：具有原生规则目录的客户端会生成对应规则，Codex 和 OpenCode 会创建或幂等更新根目录 `AGENTS.md`。
+所有具名目标默认只生成对应项目级 `session-handoff` Skill。需要常驻显式请求路由时增加 `--with-rules`：具有原生规则目录的客户端会生成对应规则，Codex 和 OpenCode 会创建或幂等更新根目录 `AGENTS.md`。规则只在用户明确要求保存、恢复、继续或核验交接时路由到 Skill。
 
 ```powershell
-handoff-memory init D:\project\demo --integrate qoder --with-rules
-handoff-memory init D:\project\demo --select-tools --with-rules
+hmem init D:\project\demo --integrate qoder --with-rules
+hmem init D:\project\demo --select-tools --with-rules
 ```
 
 `0.10.0` 已移除旧参数 `--with-agents-rule`；原有脚本直接替换为 `--with-rules`。
@@ -119,7 +119,7 @@ handoff-memory init D:\project\demo --select-tools --with-rules
 默认不会覆盖已有文件。只有明确确认 Handoff Memory 自有初始化内容可以重置时才使用：
 
 ```powershell
-handoff-memory init . --force
+hmem init . --force
 ```
 
 `--force` 不负责覆盖 AI 工具规则文件；规则接入始终只管理带标记的区块。
@@ -130,42 +130,49 @@ handoff-memory init . --force
 
 1. 当前目标
 2. 已完成
-3. 关键决策
-4. 修改文件
-5. 验证结果
+3. 关键上下文与决策
+4. 产物与变更
+5. 验证与依据
 6. 阻塞与风险
 7. 下一步
 
+旧交接中的“关键决策”“修改文件”“验证结果”继续兼容，无需迁移。模板适用于编码、写作、研究、规划等有持续目标的任务；纯闲聊且没有后续目标通常无需保存。
+
 写作要求：
 
-- “已完成”只写已经落到工作区的事实。
-- “验证结果”包含实际执行的命令和结果；没跑就明确写“尚未执行”。
-- “关键决策”记录会影响后续实现的选择和理由。
-- “下一步”使用有顺序、可执行的小步骤。
-- 不粘贴大段日志、聊天全文、密钥或环境变量。
+- “当前目标”写明问题、可验证的完成标准和范围边界。
+- “已完成”只写已经落地的事实，不写计划或推测。
+- “关键上下文与决策”只保留接续必需的背景，以及会影响后续工作的结论、原因和约束。
+- “产物与变更”记录文件、草稿、链接、数据或其他产物的用途和状态；编码任务可额外注明版本库状态。
+- “验证与依据”包含测试、来源或人工检查、结果和未覆盖项；没跑就明确写“尚未验证”。
+- “阻塞与风险”分别说明两者；没有阻塞不等于没有风险。
+- “下一步”使用有顺序、可直接执行的小步骤，并写出完成条件。
+- 不粘贴大段日志、聊天全文、个人敏感信息、密钥或环境变量。
 - 推荐保持在 2–8KB；超过 16KB 会提示精炼，超过 64KB 需要显式确认，超过 256KB 会拒绝处理。
-- “当前目标”和“下一步”的初始占位说明必须替换为实际内容；其他章节确实无内容时，可以如实写“尚未记录”或“尚未执行”。
+- “当前目标”和“下一步”的初始占位说明必须替换为实际内容；其他章节确实无内容时，可以如实写“尚未记录”或“尚未验证”。缺少验证依据或无序下一步会产生非阻断质量提示。
 
 ## 6. 保存快照
 
 校验当前 `ACTIVE.md` 并归档：
 
 ```powershell
-handoff-memory save .
+hmem save .
 ```
 
-历史文件写入 `.ai-memory/sessions/YYYYMMDD-HHMMSS.md`。快照包含保存时的 Git/SVN 元数据，但不会包含 diff 或文件内容。
+机器调用可使用 `hmem save . --format json`，成功结果包含快照路径、保存时间、活动正文摘要、版本库状态和质量警告。保存由跨进程锁串行化；同一秒内的并发调用也会获得不同快照文件，且绝不覆盖已有历史。
+
+历史文件写入 `.ai-memory/sessions/YYYYMMDD-HHMMSS.md`。快照包含规范化交接正文的 SHA-256 和保存时的 Git/SVN 元数据，但不会包含 diff 或仓库文件内容。摘要由 CLI 在保存后生成，不要把 `ACTIVE.md` 自身哈希写进正文。
 
 从外部文件保存：
 
 ```powershell
-handoff-memory save . --from D:\temp\handoff.md
+hmem save . --from D:\temp\handoff.md
 ```
 
 标准输入适合没有文件编辑能力、但能调用 CLI 的 AI 客户端：
 
 ```powershell
-Get-Content -Raw D:\temp\handoff.md | handoff-memory save . --from -
+Get-Content -Raw D:\temp\handoff.md | hmem save . --from -
 ```
 
 如果发现疑似密钥，命令返回状态码 `2`，只报告类型和行号。应优先删除敏感信息。`--allow-sensitive` 仅用于确认是误报的本地场景。
@@ -173,8 +180,8 @@ Get-Content -Raw D:\temp\handoff.md | handoff-memory save . --from -
 交接超过 64KB 时应优先删除日志、完整 diff 和重复背景。如果确认这些内容仍是接续任务所必需，可以显式保存：
 
 ```powershell
-handoff-memory save . --allow-large
-handoff-memory save . --from D:\temp\handoff.md --allow-large
+hmem save . --allow-large
+hmem save . --from D:\temp\handoff.md --allow-large
 ```
 
 `--allow-large` 只放宽 64–256KB 的质量边界，不会绕过 256KB 绝对上限，也不会绕过敏感信息检查。
@@ -186,18 +193,19 @@ handoff-memory save . --from D:\temp\handoff.md --allow-large
 人类可读格式：
 
 ```powershell
-handoff-memory resume .
+hmem resume .
 ```
 
 机器可读格式：
 
 ```powershell
-handoff-memory resume . --format json
+hmem resume . --format json
 ```
 
 JSON 顶层字段包括：
 
 - `schema_version`
+- `ok`
 - `project`
 - `active`
 - `repository`
@@ -206,25 +214,47 @@ JSON 顶层字段包括：
 - `sensitive_findings`
 - `last_archive`
 - `last_saved_at`
+- `active_sha256`
+- `last_saved_active_sha256`
+- `active_matches_saved`
 - `warnings`
 
-Markdown 恢复输出会先显示安全提示、上次保存时间和 Git/SVN 漂移，再显示 `ACTIVE.md`。交接超过 7 天时会提示优先核验任务是否仍然有效。对于 64–256KB 的大型交接，`resume` 不会阻断接续，但会在正文前提示它将占用较多上下文；超过 256KB 才会拒绝输出。
+Markdown 恢复输出会先显示安全提示、上次保存时间、活动正文一致性和 Git/SVN 漂移，再显示当前 `ACTIVE.md`。如果 `ACTIVE.md` 在保存后有编辑，输出会明确提示这些内容尚未归档；旧版本配置没有正文摘要时则显示暂时无法核验。交接超过 7 天时会提示优先核验任务是否仍然有效。对于 64–256KB 的大型交接，`resume` 不会阻断接续，但会在正文前提示它将占用较多上下文；超过 256KB 才会拒绝输出。
 
-恢复后 AI 必须先确认：
+恢复后 AI 必须先确认当前产物与依据；编码任务或存在版本库时再确认：
 
 - Git HEAD 或 SVN 修订号是否与上次保存一致。
 - Git 分支或 SVN 仓库位置是否变化。
-- 工作区是否新增或减少未提交变更。
-- `ACTIVE.md` 提到的文件是否仍存在。
-- 测试结果是否仍适用于当前代码。
+- 工作区是否新增、减少或改变未提交内容；完整状态指纹可识别“保存时和现在都不干净，但变更内容不同”。
+- 当前 `ACTIVE.md` 是否仍与最后保存正文一致；若不一致，先核验未归档编辑。
+- `ACTIVE.md` 提到的文件、草稿、链接或其他产物是否仍存在且状态一致。
+- 测试、来源或人工确认是否仍适用于当前任务。
 
 ## 8. 健康检查
 
 ```powershell
-handoff-memory check .
+hmem check .
 ```
 
-适合放入本地检查或 CI。格式无效或发现疑似密钥时返回 `2`。
+适合放入本地检查或 CI。格式无效或发现疑似密钥时返回 `2`。自动化可使用：
+
+```powershell
+hmem check . --format json
+hmem check . --strict --privacy --format json
+```
+
+默认质量提示和个人信息提示不阻断；`--strict` 会把这些警告升级为退出码 `2`。`--privacy` 扫描活动交接和将要输出的仓库元数据，只返回来源、个人信息类型与行号；仓库元数据命中时整段隐藏，不回显匹配原文。
+
+只读浏览历史：
+
+```powershell
+hmem history .
+hmem history . --format json
+hmem show latest .
+hmem show 20260712-115718.md . --format json
+```
+
+`show` 只允许读取项目历史目录内的快照，会拒绝目录穿越、符号链接或 Junction、超大文件、损坏元数据和疑似密钥；这些命令不会修改活动交接、配置或快照。即使 `ACTIVE.md` 缺失或配置损坏，仍可降级使用历史命令进行只读救援。
 
 ## 9. 版本库纳管策略
 
@@ -246,7 +276,7 @@ AI-HANDOFF.md
 .agents/rules/handoff-memory.md
 ```
 
-其他客户端会写入各自目录，例如 `.claude/skills`、`.cursor/rules` 或 `.github/skills`。运行 `handoff-memory help integrate` 查看实际路径，并只忽略当前项目生成的具体文件或 `session-handoff` 目录；不要直接忽略整个 `.github/`、`.cursor/` 等目录，以免隐藏项目已有配置。修改忽略规则后运行 `git status --short`，确认没有遗漏接入文件。
+其他客户端会写入各自目录，例如 `.claude/skills`、`.cursor/rules` 或 `.github/skills`。运行 `hmem help integrate` 查看实际路径，并只忽略当前项目生成的具体文件或 `session-handoff` 目录；不要直接忽略整个 `.github/`、`.cursor/` 等目录，以免隐藏项目已有配置。修改忽略规则后运行 `git status --short`，确认没有遗漏接入文件。
 
 SVN 项目可以设置 `svn:ignore`：
 
@@ -266,7 +296,7 @@ svn commit -m "chore: 忽略本地 AI 交接目录"
 在正确的项目根目录执行：
 
 ```powershell
-handoff-memory init .
+hmem init .
 ```
 
 ### 提示缺少章节
@@ -281,11 +311,11 @@ Handoff Memory 按 UTF-8 读取 Git 输出，并使用 SVN XML 接口避免本�
 
 确认对应规则文件确实被客户端加载。不能确认时，把下面这句话作为新会话第一条消息：
 
-> 先运行 `handoff-memory resume .`，将交接视为可能过期的参考，并用 Git/SVN、当前文件和测试核验后继续。
+> 先运行 `hmem resume .`，将交接视为可能过期的参考，并用当前产物、依据以及可用的 Git/SVN 和测试核验后继续。
 
 ### 会话意外关闭，没有最新快照
 
-恢复最近一次里程碑快照，再从 Git/SVN 工作区反推其后的修改。因此应在重要阶段保存，而不是只依赖会话结束时保存。
+恢复最近一次由用户明确要求保存的快照，再从 Git/SVN 工作区反推其后的修改。Handoff Memory 不会因任务完成、里程碑或对话结束自动创建快照；需要切换会话时，请先明确要求 AI 保存，或手动更新 `ACTIVE.md` 后运行 `hmem save .`。
 
 ## 11. SVN 项目
 
@@ -293,9 +323,9 @@ Handoff Memory 按 UTF-8 读取 Git 输出，并使用 SVN XML 接口避免本�
 
 ```powershell
 cd D:\path\to\svn-working-copy
-handoff-memory init . --name "SVN 项目" --integrate codex
-handoff-memory save .
-handoff-memory resume .
+hmem init . --name "SVN 项目" --integrate codex
+hmem save .
+hmem resume .
 ```
 
 恢复输出会包含：

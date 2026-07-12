@@ -39,7 +39,7 @@ Handoff Memory 的核心能力位于 `session-handoff` Skill。0.9.0 及更早�
 
 ## 后果
 
-- `handoff-memory init . --select-tools` 不再隐式生成任何客户端规则。
+- `hmem init . --select-tools` 不再隐式生成任何客户端规则。
 - 需要规则的用户必须增加 `--with-rules`。
 - 从旧版本升级后重新运行不带参数的 `integrate` 不会删除已有规则；需要移除时应人工确认规则文件没有用户内容后再删除。
 - CLI、文档、测试和 CI 统一使用一个规则开关，后续新增客户端不再设计专用参数。

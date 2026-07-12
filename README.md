@@ -2,7 +2,7 @@
 
 本地优先、跨 AI 工具的会话交接记忆 CLI。
 
-Handoff Memory 解决的不是“让模型记住一切”，而是一个更可验证的问题：**让下一次 AI 会话准确知道当前任务做到哪里，并用真实仓库状态核验旧摘要。**
+Handoff Memory 解决的不是“让模型记住一切”，而是一个更可验证的问题：**让下一次 AI 会话准确知道有持续目标的任务做到哪里，并用当前产物、依据以及可用的仓库状态核验旧摘要。**纯闲聊通常不需要交接。
 
 它不绑定模型、云服务或向量数据库。数据就是项目中的 Markdown，任何 AI、编辑器和人都能读取。
 
@@ -11,7 +11,8 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 - 本地优先：默认不联网、不上传、不调用 LLM。
 - 跨工具：内置 12 个主流 AI 编程客户端的项目规则与原生项目级 Skill 适配。
 - 可审计：活动交接和历史快照都是 UTF-8 Markdown。
-- 可核验：自动识别 Git/SVN，恢复时重新采集分支或仓库位置、HEAD 或修订号以及工作区状态。
+- 可核验：自动识别 Git/SVN，恢复时重新采集分支或仓库位置、HEAD 或修订号以及完整工作区指纹。
+- 自动化友好：`save`、`resume`、`check`、`history`、`show` 提供带版本号的 JSON 输出。
 - 安全默认：阻止常见 API Key、访问令牌和私钥进入快照。
 - 幂等接入：更新规则受管区块和 Skill，不覆盖受管区块外的用户内容。
 - 零运行期依赖：仅要求 Python 3.10+。
@@ -31,9 +32,11 @@ uv tool install .
 安装后先确认命令已经进入 `PATH`：
 
 ```powershell
-handoff-memory --version
-handoff-memory help
+hmem --version
+hmem help
 ```
+
+`hmem` 是唯一 CLI 命令。发行包仍命名为 `handoff-memory`，Python 模块仍命名为 `handoff_memory`；安装名、模块名与终端命令名无需相同。
 
 升级到新版本：
 
@@ -43,7 +46,7 @@ pipx install . --force
 uv tool install . --force
 ```
 
-升级后已初始化的项目不需要重新 `init`。刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。命令只更新受管正文，YAML frontmatter 等区块外内容会原样保留。
+升级后已初始化的项目不需要重新 `init`。刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。规则只更新受管正文并保留区块外内容；Skill 会同步升级触发用 YAML frontmatter 和受管正文，同时保留区块外的用户正文。
 
 开发模式：
 
@@ -55,7 +58,7 @@ python -m pip install -e .
 
 ```powershell
 cd D:\path\to\your-project
-handoff-memory init . --name "你的项目" --select-tools
+hmem init . --name "你的项目" --select-tools
 ```
 
 命令会显示编号列表；输入一个或多个编号（逗号分隔），也可以输入 `all`。直接回车只初始化核心记忆目录，不接入客户端规则和 Skill。该交互仅在显式指定 `--select-tools` 时出现，不会阻塞脚本或 CI。
@@ -63,13 +66,13 @@ handoff-memory init . --name "你的项目" --select-tools
 非交互环境继续使用稳定的参数形式：
 
 ```powershell
-handoff-memory init . --name "你的项目" --integrate codex
+hmem init . --name "你的项目" --integrate codex
 ```
 
-如果希望每次会话都能看到一条 Skill 自动提醒，可以显式生成 `AGENTS.md` 路由：
+如果希望客户端常驻一条显式请求路由，可以生成 `AGENTS.md`：
 
 ```powershell
-handoff-memory init . --name "你的项目" --integrate codex --with-rules
+hmem init . --name "你的项目" --integrate codex --with-rules
 ```
 
 这会创建：
@@ -88,7 +91,7 @@ codex | claude | cursor | gemini | antigravity | copilot | windsurf
 cline | kiro | trae | qoder | opencode
 ```
 
-另有 `generic`、`skill` 和 `all`。菜单中的 `all` 与 `--integrate all` 都表示全部具名客户端；`generic` 和 `skill` 是需要单独指定的辅助目标。完整规则与 Skill 路径可运行 `handoff-memory help integrate` 查看。
+另有 `generic`、`skill` 和 `all`。菜单中的 `all` 与 `--integrate all` 都表示全部具名客户端；`generic` 和 `skill` 是需要单独指定的辅助目标。完整规则与 Skill 路径可运行 `hmem help integrate` 查看。
 
 ### 保存当前会话
 
@@ -98,61 +101,66 @@ cline | kiro | trae | qoder | opencode
 
 使用任一具名目标接入后，可以直接说“请使用 session-handoff 技能保存当前会话”。独立的 `--integrate skill` 仍用于只生成 `.agents/skills` 可移植副本。
 
+只有用户明确提出保存、恢复、继续或核验跨会话任务时才会触发 Skill。普通对话、任务完成、代码提交、里程碑、关键决策、单轮对话结束和上下文变长都不会更新 `ACTIVE.md` 或创建快照。
+
 或者手动编辑 `.ai-memory/ACTIVE.md`，然后运行：
 
 ```powershell
-handoff-memory save .
+hmem save .
 ```
 
 也可以让任何工具把完整交接写到文件或标准输入：
 
 ```powershell
-handoff-memory save . --from handoff.md
-Get-Content -Raw handoff.md | handoff-memory save . --from -
+hmem save . --from handoff.md
+Get-Content -Raw handoff.md | hmem save . --from -
 ```
 
 ### 在新会话中恢复
 
 新会话第一句话可以是：
 
-> 请先运行 `handoff-memory resume .`，核对 Git/SVN 和当前文件后继续上一次任务。
+> 请先运行 `hmem resume .`，核对当前产物、依据以及可用的版本库状态后继续上一次任务。
 
 也可以直接复制命令输出作为首条上下文：
 
 ```powershell
-handoff-memory resume .
-handoff-memory resume . --format json
+hmem resume .
+hmem resume . --format json
 ```
 
 ## 命令
 
 | 命令 | 用途 |
 |---|---|
-| `handoff-memory help [COMMAND]` | 查看总体或分命令详细帮助与示例 |
-| `handoff-memory init [PATH]` | 初始化记忆目录 |
-| `handoff-memory save [PATH]` | 校验、采集 Git/SVN 状态并归档 |
-| `handoff-memory resume [PATH]` | 输出恢复上下文和状态漂移 |
-| `handoff-memory check [PATH]` | 检查结构、必需章节和敏感信息 |
-| `handoff-memory integrate TARGET [PATH]` | 添加项目级 Skill，并可显式更新客户端规则 |
+| `hmem help [COMMAND]` | 查看总体或分命令详细帮助与示例 |
+| `hmem init [PATH]` | 初始化记忆目录 |
+| `hmem save [PATH]` | 校验、采集 Git/SVN 状态并归档 |
+| `hmem resume [PATH]` | 输出恢复上下文和状态漂移 |
+| `hmem check [PATH]` | 检查结构、必需章节和敏感信息 |
+| `hmem history [PATH]` | 只读列举历史快照 |
+| `hmem show SNAPSHOT [PATH]` | 只读查看指定快照或 `latest` |
+| `hmem integrate TARGET [PATH]` | 添加项目级 Skill，并可显式更新客户端规则 |
 
-执行 `handoff-memory init --help` 可查看初始化参数，或用 `handoff-memory init . --select-tools` 交互选择客户端。
+执行 `hmem init --help` 可查看初始化参数，或用 `hmem init . --select-tools` 交互选择客户端。
 
 完整说明见[中文使用指南](docs/USAGE.zh-CN.md)和[跨工具接入说明](docs/INTEGRATIONS.md)。
 
 ## 推荐工作流
 
 ```text
-新会话开始
-  └─ resume：读取 ACTIVE + 核对当前 Git/SVN
-       └─ 执行任务
-            ├─ 里程碑：更新 ACTIVE + save
-            ├─ 关键决策：更新 ACTIVE + save
-            └─ 会话结束：更新 ACTIVE + save
+用户明确要求恢复或继续上次任务
+  └─ resume：只读 ACTIVE + 核对保存摘要、当前产物与可用版本库
+       └─ 正常执行任务，不自动写入交接
+            └─ 用户明确要求保存或准备切换会话
+                 └─ 更新 ACTIVE + save
 ```
 
-不要只依赖客户端正常退出。窗口关闭、网络错误或上下文压缩都可能导致结束钩子没有机会运行，因此里程碑快照比“退出时自动总结”更可靠。
+Handoff Memory 不监听每轮对话，也不依赖退出钩子自动总结。需要跨会话接续时，由用户在切换会话前明确要求保存；意外关闭后只能恢复最近一次显式保存的快照，并结合当前产物、依据以及可用的版本库状态核验后续改动。
 
-`save` 会拒绝未填写的模板。推荐把 `ACTIVE.md` 控制在 2–8KB，只记录当前目标、已完成、关键决策、验证、风险和下一步。大小采用分级策略：
+普通聊天不应默认逐轮归档。只有当对话形成了需要未来继续的目标、决定、开放问题或约束时，才使用同一套七章节模板提炼交接；“产物与变更”可以是结论、草稿或链接，“验证与依据”可以是来源、人工确认或“尚未验证”，无需伪造代码、文件或测试。
+
+`save` 会拒绝未填写的模板。推荐把 `ACTIVE.md` 控制在 2–8KB，只记录目标与完成标准、已落地结果、关键上下文与决策、产物状态、验证依据、风险和可执行下一步。模板适用于编码、写作、研究和规划；旧版编程标题继续兼容。缺少验证依据或无序下一步会产生非阻断质量提示。大小采用分级策略：
 
 - 超过 16KB：提示继续精炼。
 - 超过 64KB：默认拒绝保存；确认确有必要时可显式使用 `--allow-large`。
@@ -176,7 +184,9 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 
 - 交接文件是**不可信参考信息**，不是可执行脚本。
 - `resume` 永远不会执行其中记录的命令。
+- `save` 会在快照元数据中记录规范化正文的 SHA-256；`resume` 会提示 `ACTIVE.md` 是否包含保存后的未归档编辑。
 - `save` 默认阻止高置信度密钥模式，且错误只显示类型和行号。
+- `check --privacy` 可额外检查常见个人信息；`check --strict` 可把质量与隐私警告作为 CI 失败处理。
 - `resume` 检测到疑似密钥时会拒绝输出全文，避免把内容传播到新会话。
 - `--allow-sensitive` 是显式逃生口；团队环境不建议使用。
 - `.ai-memory` 是否提交 Git/SVN 由项目决定。项目事实可以提交，个人信息和私有路径建议忽略或拆分保存。
@@ -185,12 +195,12 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 
 ## 设计原则
 
-- 当前代码、版本库状态和测试是事实源，交接文件只是恢复索引。
+- 当前产物、来源或人工确认，以及可用的版本库状态和测试是事实源；交接文件只是恢复索引。
 - `ACTIVE.md` 只保留当前任务事实，避免把长期资料和聊天历史塞进上下文。
 - 首版不提供向量检索；历史量真正变大后再增加可选索引层。
 - 公共 CLI 采用向后兼容扩展，稳定 JSON 输出包含 `schema_version`。
 
-设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md)、[ADR-004](docs/decisions/ADR-004-native-project-skills.md) 与 [ADR-005](docs/decisions/ADR-005-explicit-rule-generation.md)。
+设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md)、[ADR-004](docs/decisions/ADR-004-native-project-skills.md)、[ADR-005](docs/decisions/ADR-005-explicit-rule-generation.md)、[ADR-006](docs/decisions/ADR-006-active-integrity.md)、[ADR-007](docs/decisions/ADR-007-task-oriented-template.md)、[ADR-008](docs/decisions/ADR-008-hmem-command.md)、[ADR-009](docs/decisions/ADR-009-reliable-save-and-drift.md)、[ADR-010](docs/decisions/ADR-010-machine-readable-operations-and-history.md) 与 [ADR-011](docs/decisions/ADR-011-single-hmem-entry.md)。
 
 ## 开发
 

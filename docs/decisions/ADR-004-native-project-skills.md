@@ -19,6 +19,7 @@ Handoff Memory 的规则文件只适合提供轻量提醒，完整的保存、�
 - 每个具名客户端默认生成原生项目级 `session-handoff/SKILL.md`；客户端规则只在显式指定 `--with-rules` 时生成。
 - 使用 `PROJECT_SKILL_PATHS` 作为目标到原生目录的唯一映射；新增目标必须同时增加 Skill 路径和文件系统测试。
 - 所有目录写入同一份 `SKILL_TEMPLATE`，确保跨客户端流程一致。
+- Skill 和规则只路由用户明确提出的保存、恢复、继续或核验交接请求；不得把普通任务完成、代码提交或会话内事件推断为保存时机。
 - 继续保留 `generic` 作为仅规则基线，保留 `skill` 作为 `.agents/skills` 可移植副本入口。
 - `AGENTS.md` 仍是显式可选的轻量路由，不替代 Skill，也不因生成 Skill 而默认创建；具体规则开关见 ADR-005。
 

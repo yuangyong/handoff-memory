@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import Sequence
 
@@ -15,9 +17,14 @@ from .core import (
     archive_active,
     initialize_project,
     inspect_project,
+    list_history,
+    render_history,
     render_resume,
+    render_snapshot,
+    show_snapshot,
 )
 from .integrations import AI_TOOL_TARGETS, TARGETS, integrate
+from .security import find_personal_information, find_secrets
 
 
 AI_TOOL_LABELS = {
@@ -35,27 +42,29 @@ AI_TOOL_LABELS = {
     "opencode": "OpenCode",
 }
 
-_COMMANDS = ("init", "save", "resume", "check", "integrate")
+_COMMANDS = ("init", "save", "resume", "check", "history", "show", "integrate")
 _FORMATTER = argparse.RawDescriptionHelpFormatter
+_CANONICAL_PROGRAM = "hmem"
 
 
 def build_parser() -> argparse.ArgumentParser:
+    program_name = _CANONICAL_PROGRAM
     parser = argparse.ArgumentParser(
-        prog="handoff-memory",
+        prog=program_name,
         description="本地优先、跨 AI 工具的会话交接记忆 CLI",
         formatter_class=_FORMATTER,
-        epilog="""常用示例：
-  handoff-memory init . --select-tools
-  handoff-memory save .
-  handoff-memory resume .
-  handoff-memory help init
+        epilog=f"""常用示例：
+  {program_name} init . --select-tools
+  {program_name} save .
+  {program_name} resume .
+  {program_name} help init
 
-使用 `handoff-memory help [COMMAND]` 查看某个命令的详细说明。""",
+使用 `{program_name} help [COMMAND]` 查看某个命令的详细说明。""",
     )
     parser.add_argument(
         "--version",
         action="version",
-        version=f"handoff-memory {__version__}",
+        version=f"{program_name} {__version__}",
         help="显示版本并退出",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -65,10 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="初始化记忆目录并可选接入 AI 工具",
         description="初始化项目的会话交接目录，并可通过参数或交互选择列表接入 AI 编程工具。",
         formatter_class=_FORMATTER,
-        epilog="""示例：
-  handoff-memory init . --select-tools
-  handoff-memory init . --name "示例项目" --integrate codex
-  handoff-memory init . --integrate codex --with-rules
+        epilog=f"""示例：
+  {program_name} init . --select-tools
+  {program_name} init . --name "示例项目" --integrate codex
+  {program_name} init . --integrate codex --with-rules
 
 `--select-tools` 是显式交互模式，支持多选；脚本和 CI 请使用 `--integrate`。""",
     )
@@ -97,10 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="校验并归档当前交接",
         description="校验 ACTIVE.md，采集 Git/SVN 状态并创建只增不改的会话快照。",
         formatter_class=_FORMATTER,
-        epilog="""示例：
-  handoff-memory save .
-  handoff-memory save . --from handoff.md
-  Get-Content -Raw handoff.md | handoff-memory save . --from -""",
+        epilog=f"""示例：
+  {program_name} save .
+  {program_name} save . --from handoff.md
+  Get-Content -Raw handoff.md | {program_name} save . --from -""",
     )
     save.add_argument("path", nargs="?", default=".", help="项目目录，默认为当前目录")
     save.add_argument("--from", dest="source", help="先从 UTF-8 文件读取交接；使用 - 表示标准输入")
@@ -110,15 +119,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="明确允许保存 64KB 到 256KB 的大型交接",
     )
+    save.add_argument("--format", choices=("text", "json"), default="text")
 
     resume = subparsers.add_parser(
         "resume",
         help="输出供新会话读取的恢复上下文",
         description="读取活动交接并核对当前 Git/SVN 状态，输出可直接提供给新会话的上下文。",
         formatter_class=_FORMATTER,
-        epilog="""示例：
-  handoff-memory resume .
-  handoff-memory resume . --format json""",
+        epilog=f"""示例：
+  {program_name} resume .
+  {program_name} resume . --format json""",
     )
     resume.add_argument("path", nargs="?", default=".", help="项目目录，默认为当前目录")
     resume.add_argument("--format", choices=("markdown", "json"), default="markdown")
@@ -128,16 +138,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="检查记忆目录、格式与安全状态",
         description="只读检查交接格式、大小、质量提示和高置信度敏感信息。",
         formatter_class=_FORMATTER,
-        epilog="示例：\n  handoff-memory check .",
+        epilog=f"示例：\n  {program_name} check .",
     )
     check.add_argument("path", nargs="?", default=".", help="项目目录，默认为当前目录")
+    check.add_argument("--format", choices=("text", "json"), default="text")
+    check.add_argument(
+        "--strict", action="store_true", help="把质量或隐私提示视为检查失败"
+    )
+    check.add_argument(
+        "--privacy", action="store_true", help="额外扫描基础个人信息类型（可能误报）"
+    )
+
+    history_parser = subparsers.add_parser(
+        "history",
+        help="只读列出历史快照及诊断",
+        description="按保存时间列出历史快照，并识别损坏或疑似未完成的快照。",
+        formatter_class=_FORMATTER,
+        epilog=f"示例：\n  {program_name} history .\n  {program_name} history . --format json",
+    )
+    history_parser.add_argument(
+        "path", nargs="?", default=".", help="项目目录，默认为当前目录"
+    )
+    history_parser.add_argument(
+        "--format", choices=("markdown", "json"), default="markdown"
+    )
+
+    show_parser = subparsers.add_parser(
+        "show",
+        help="只读查看一个历史快照",
+        description="按安全快照名称或 latest 查看归档正文与元数据。",
+        formatter_class=_FORMATTER,
+        epilog=f"示例：\n  {program_name} show latest .\n  {program_name} show 20260712-120000.md . --format json",
+    )
+    show_parser.add_argument("snapshot", metavar="SNAPSHOT", help="安全快照 basename 或 latest")
+    show_parser.add_argument(
+        "path", nargs="?", default=".", help="项目目录，默认为当前目录"
+    )
+    show_parser.add_argument(
+        "--format", choices=("markdown", "json"), default="markdown"
+    )
 
     adapter = subparsers.add_parser(
         "integrate",
         help="生成项目级 Skill，并可显式生成客户端规则",
         description="默认只生成原生项目级 Skill；指定 --with-rules 后生成幂等客户端规则。",
         formatter_class=_FORMATTER,
-        epilog="""主要目标与项目级 Skill：
+        epilog=f"""主要目标与项目级 Skill：
   codex        OpenAI Codex      .agents/skills/session-handoff/SKILL.md
   opencode     OpenCode          .opencode/skills/session-handoff/SKILL.md
   claude       Claude Code       .claude/skills/session-handoff/SKILL.md
@@ -164,9 +210,9 @@ def build_parser() -> argparse.ArgumentParser:
 其他目标：generic 生成通用规则，skill 生成可移植 Skill，all 生成全部具名客户端 Skill。
 
 示例：
-  handoff-memory integrate copilot .
-  handoff-memory integrate qoder . --with-rules
-  handoff-memory integrate all . --with-rules""",
+  {program_name} integrate copilot .
+  {program_name} integrate qoder . --with-rules
+  {program_name} integrate all . --with-rules""",
     )
     adapter.add_argument("target", choices=TARGETS, help="客户端短名称或辅助目标")
     adapter.add_argument("path", nargs="?", default=".", help="项目目录，默认为当前目录")
@@ -189,6 +235,8 @@ def build_parser() -> argparse.ArgumentParser:
         save,
         resume,
         check,
+        history_parser,
+        show_parser,
         adapter,
         help_command,
     ):
@@ -200,6 +248,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """运行 CLI；预期的用户错误不输出堆栈。"""
     _configure_utf8_stdio()
     parser = build_parser()
+    args = None
     try:
         args = parser.parse_args(argv)
         if args.command == "help":
@@ -216,8 +265,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise HandoffError(
                     "--with-rules 必须与具名客户端、--select-tools 或 --integrate all 一起使用"
                 )
-            result = initialize_project(args.path, name=args.name, force=args.force)
-            print(f"已{'创建' if result.created else '检查'}记忆目录：{Path(args.path).resolve() / '.ai-memory'}")
+            init_result = initialize_project(args.path, name=args.name, force=args.force)
+            print(f"已{'创建' if init_result.created else '检查'}记忆目录：{Path(args.path).resolve() / '.ai-memory'}")
             if selected_targets:
                 changed = []
                 for target in selected_targets:
@@ -234,15 +283,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.command == "save":
             content = _read_source(args.source) if args.source else None
-            result = archive_active(
+            archive_result = archive_active(
                 args.path,
                 content=content,
                 allow_sensitive=args.allow_sensitive,
                 allow_large=args.allow_large,
             )
-            print(f"已保存交接快照：{result.archive_path}")
-            for warning in result.warnings:
-                print(f"提示：{warning}")
+            if args.format == "json":
+                _print_json(
+                    {
+                        "schema_version": 1,
+                        "ok": True,
+                        "archive": str(archive_result.archive_path),
+                        "saved_at": archive_result.saved_at,
+                        "active_sha256": archive_result.active_sha256,
+                        "repository": archive_result.repository_state.to_dict(),
+                        "warnings": list(archive_result.warnings),
+                    }
+                )
+            else:
+                print(f"已保存交接快照：{archive_result.archive_path}")
+                for warning in archive_result.warnings:
+                    print(f"提示：{warning}")
             return 0
         if args.command == "resume":
             print(render_resume(inspect_project(args.path), output_format=args.format), end="")
@@ -251,14 +313,117 @@ def main(argv: Sequence[str] | None = None) -> int:
             report = inspect_project(args.path)
             problems = list(report.validation_errors)
             problems.extend(f"疑似 {item.kind}（第 {item.line} 行）" for item in report.secret_findings)
+            active_privacy_findings = (
+                find_personal_information(report.active) if args.privacy else []
+            )
+            repository_payload = report.repository.to_dict()
+            serialized_repository = json.dumps(
+                repository_payload, ensure_ascii=False, sort_keys=True, indent=2
+            )
+            repository_secret_findings = find_secrets(serialized_repository)
+            saved_repository = report.config.get("last_saved_repository")
+            if not isinstance(saved_repository, dict):
+                saved_repository = report.config.get("last_saved_git")
+            serialized_saved_repository = json.dumps(
+                saved_repository if isinstance(saved_repository, dict) else {},
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            serialized_drift = json.dumps(
+                list(report.drift), ensure_ascii=False, indent=2
+            )
+            repository_privacy_findings = (
+                find_personal_information(serialized_repository)
+                if args.privacy
+                else []
+            )
+            saved_repository_privacy_findings = (
+                find_personal_information(serialized_saved_repository)
+                if args.privacy
+                else []
+            )
+            drift_privacy_findings = (
+                find_personal_information(serialized_drift) if args.privacy else []
+            )
+            privacy_findings = [
+                {**asdict(item), "source": "active"}
+                for item in active_privacy_findings
+            ] + [
+                {**asdict(item), "source": "repository"}
+                for item in repository_privacy_findings
+            ] + [
+                {**asdict(item), "source": "saved_repository"}
+                for item in saved_repository_privacy_findings
+            ] + [
+                {**asdict(item), "source": "drift"}
+                for item in drift_privacy_findings
+            ]
+            if (
+                repository_secret_findings
+                or repository_privacy_findings
+                or saved_repository_privacy_findings
+            ):
+                repository_payload = {
+                    "provider": report.repository.provider,
+                    "redacted": True,
+                    "note": "仓库元数据包含敏感或个人信息，已在检查输出中隐藏",
+                }
+            drift_payload = list(report.drift)
+            if drift_privacy_findings:
+                drift_payload = ["仓库漂移包含个人信息，已隐藏具体值"]
+            warnings = list(report.quality_warnings)
+            warnings.extend(
+                f"疑似 {item['kind']}（{item['source']} 第 {item['line']} 行）"
+                for item in privacy_findings
+            )
+            ok = not problems and (not args.strict or not warnings)
+            if args.format == "json":
+                _print_json(
+                    {
+                        "schema_version": 1,
+                        "ok": ok,
+                        "strict": args.strict,
+                        "privacy": args.privacy,
+                        "problems": problems,
+                        "warnings": warnings,
+                        "privacy_findings": privacy_findings,
+                        "repository": repository_payload,
+                        "drift": drift_payload,
+                        "active_sha256": report.active_sha256,
+                        "last_saved_active_sha256": report.saved_active_sha256,
+                        "active_matches_saved": report.active_matches_saved,
+                    }
+                )
+                return 0 if ok else 2
             if problems:
                 print("检查失败：", file=sys.stderr)
                 for problem in problems:
                     print(f"- {problem}", file=sys.stderr)
                 return 2
-            for warning in report.quality_warnings:
+            if args.strict and warnings:
+                print("严格检查失败：", file=sys.stderr)
+                for warning in warnings:
+                    print(f"- {warning}", file=sys.stderr)
+                return 2
+            for warning in warnings:
                 print(f"提示：{warning}")
             print("检查通过：记忆格式有效，未发现高置信度敏感信息。")
+            return 0
+        if args.command == "history":
+            print(
+                render_history(list_history(args.path), output_format=args.format),
+                end="",
+            )
+            return 0
+        if args.command == "show":
+            print(
+                render_snapshot(
+                    show_snapshot(args.path, args.snapshot),
+                    output_format=args.format,
+                ),
+                end="",
+            )
             return 0
         if args.command == "integrate":
             changed = integrate(
@@ -271,14 +436,43 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("缺少命令")
         return 2
     except (HandoffError, ValueError) as exc:
-        print(f"错误：{exc}", file=sys.stderr)
+        if _json_requested(args):
+            _print_json(
+                {
+                    "schema_version": 1,
+                    "ok": False,
+                    "error": {"code": "HANDOFF_ERROR", "message": str(exc)},
+                }
+            )
+        else:
+            print(f"错误：{exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
         print("错误：操作已取消", file=sys.stderr)
         return 130
     except Exception as exc:
-        print(f"内部错误：{type(exc).__name__}：{exc}", file=sys.stderr)
+        if _json_requested(args):
+            _print_json(
+                {
+                    "schema_version": 1,
+                    "ok": False,
+                    "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": f"{type(exc).__name__}：{exc}",
+                    },
+                }
+            )
+        else:
+            print(f"内部错误：{type(exc).__name__}：{exc}", file=sys.stderr)
         return 1
+
+
+def _json_requested(args: argparse.Namespace | None) -> bool:
+    return args is not None and getattr(args, "format", None) == "json"
+
+
+def _print_json(payload: dict[str, object]) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def _read_source(source: str) -> str:

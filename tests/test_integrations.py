@@ -1,5 +1,8 @@
+import subprocess
+import sys
 import tempfile
 import unittest
+from importlib.resources import files
 from pathlib import Path
 
 from handoff_memory.integrations import (
@@ -12,6 +15,63 @@ from handoff_memory.templates import GENERIC_RULE, SKILL_TEMPLATE
 
 
 class IntegrationTemplateTests(unittest.TestCase):
+    def test_skill_template_is_loaded_from_canonical_package_resource(self) -> None:
+        canonical = files("handoff_memory").joinpath(
+            "assets", "session-handoff", "SKILL.md"
+        )
+
+        self.assertTrue(canonical.is_file())
+        self.assertEqual(canonical.read_text(encoding="utf-8"), SKILL_TEMPLATE)
+
+    def test_sync_script_generates_and_checks_distributable_copy(self) -> None:
+        repository = Path(__file__).parents[1]
+        script = repository / "scripts/sync_session_handoff_skill.py"
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "SKILL.md"
+            synchronized = subprocess.run(
+                [sys.executable, str(script), "--target", str(target)],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            checked = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--target",
+                    str(target),
+                    "--check",
+                ],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(synchronized.returncode, 0, synchronized.stderr)
+            self.assertEqual(target.read_text(encoding="utf-8"), SKILL_TEMPLATE)
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+
+            target.write_text("已漂移\n", encoding="utf-8")
+            drifted = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--target",
+                    str(target),
+                    "--check",
+                ],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(drifted.returncode, 1)
+            self.assertIn("不同步", drifted.stderr)
+
     def test_mainstream_ai_tools_have_named_targets(self) -> None:
         expected = {
             "codex",
@@ -317,12 +377,116 @@ class IntegrationTemplateTests(unittest.TestCase):
 
         self.assertEqual(repository_skill, SKILL_TEMPLATE)
 
+    def test_existing_skill_frontmatter_is_upgraded_with_template(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            skill = project / ".agents/skills/session-handoff/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            outdated = SKILL_TEMPLATE.replace(
+                "description: 仅在用户明确要求",
+                "description: 保存、恢复或核验跨会话状态。阶段工作完成时使用。",
+                1,
+            )
+            skill.write_text(outdated, encoding="utf-8")
+
+            changed = integrate(project, "codex")
+
+            self.assertEqual(changed, [skill])
+            self.assertEqual(skill.read_text(encoding="utf-8"), SKILL_TEMPLATE)
+
+    def test_skill_upgrade_preserves_unknown_frontmatter_and_user_body(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            skill = project / ".agents/skills/session-handoff/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            customized = SKILL_TEMPLATE.replace(
+                "description: 仅在用户明确要求",
+                "description: 旧的触发说明。",
+                1,
+            ).replace(
+                "---\n\n<!-- handoff-memory:start -->",
+                "allowed-tools: Read, Bash\nmetadata:\n  owner: local\n---\n\n"
+                "用户自定义前言\n\n<!-- handoff-memory:start -->",
+                1,
+            )
+            skill.write_text(customized, encoding="utf-8")
+
+            changed = integrate(project, "codex")
+
+            content = skill.read_text(encoding="utf-8")
+            self.assertEqual(changed, [skill])
+            self.assertIn("description: 仅在用户明确要求", content)
+            self.assertIn("allowed-tools: Read, Bash\n", content)
+            self.assertIn("metadata:\n  owner: local\n", content)
+            self.assertIn("用户自定义前言", content)
+            self.assertEqual(content.count("handoff-memory:start"), 1)
+            self.assertEqual(integrate(project, "codex"), [])
+
+    def test_skill_upgrade_rejects_malformed_frontmatter_or_managed_markers(self) -> None:
+        managed = SKILL_TEMPLATE[SKILL_TEMPLATE.index("<!-- handoff-memory:start -->") :]
+        valid_frontmatter = "---\nname: session-handoff\ndescription: 旧说明\n---\n\n"
+        malformed_cases = {
+            "frontmatter 缺少结束分隔符": (
+                "---\nname: session-handoff\ndescription: 旧说明\n\n" + managed
+            ),
+            "受管区块缺少结束标记": valid_frontmatter
+            + "<!-- handoff-memory:start -->\n旧内容\n",
+            "受管区块缺少开始标记": valid_frontmatter
+            + "旧内容\n<!-- handoff-memory:end -->\n",
+            "受管区块重复": valid_frontmatter + managed + "\n" + managed,
+            "受管标记顺序交叉": valid_frontmatter
+            + "<!-- handoff-memory:end -->\n旧内容\n<!-- handoff-memory:start -->\n",
+        }
+
+        for case, original in malformed_cases.items():
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                project = Path(directory)
+                skill = project / ".agents/skills/session-handoff/SKILL.md"
+                skill.parent.mkdir(parents=True)
+                skill.write_text(original, encoding="utf-8")
+
+                with self.assertRaises(ValueError):
+                    integrate(project, "codex")
+
+                self.assertEqual(skill.read_text(encoding="utf-8"), original)
+
     def test_rules_do_not_duplicate_active_context_on_resume(self) -> None:
         self.assertIn("输出已经包含 `ACTIVE.md`", GENERIC_RULE)
         self.assertNotIn("并阅读 `.ai-memory/ACTIVE.md`", GENERIC_RULE)
 
+    def test_rules_only_route_explicit_session_handoff_requests(self) -> None:
+        self.assertIn("仅当用户明确要求恢复", GENERIC_RULE)
+        self.assertIn("仅当用户明确要求保存", GENERIC_RULE)
+        self.assertIn("普通任务不得读取或写入", GENERIC_RULE)
+        self.assertNotIn("开始处理任务前", GENERIC_RULE)
+
     def test_skill_uses_workspace_evidence_and_handles_missing_state(self) -> None:
-        self.assertIn("版本库状态、相关 diff 和实际测试结果", SKILL_TEMPLATE)
+        self.assertIn("编码任务，检查版本库状态、相关 diff 和实际测试", SKILL_TEMPLATE)
+        self.assertIn("写作、研究、规划等任务", SKILL_TEMPLATE)
         self.assertIn("没有可恢复的交接", SKILL_TEMPLATE)
         self.assertIn("不得假装恢复成功", SKILL_TEMPLATE)
         self.assertIn("不要自动使用 `--allow-sensitive`", SKILL_TEMPLATE)
+
+    def test_skill_only_saves_on_explicit_session_handoff_request(self) -> None:
+        self.assertIn("只有用户明确要求", SKILL_TEMPLATE)
+        self.assertIn("恢复流程是只读操作", SKILL_TEMPLATE)
+        self.assertIn("不得更新 `ACTIVE.md` 或创建快照", SKILL_TEMPLATE)
+        self.assertNotIn("`handoff-memory ", SKILL_TEMPLATE)
+        self.assertNotIn("阶段工作完成时使用", SKILL_TEMPLATE)
+        self.assertNotIn("## 阶段检查点", SKILL_TEMPLATE)
+        self.assertNotIn("完成重要里程碑", SKILL_TEMPLATE)
+
+    def test_skill_distinguishes_current_evidence_from_handoff_claims(self) -> None:
+        self.assertIn("当前已核验", SKILL_TEMPLATE)
+        self.assertIn("交接中记录但本次尚未核验", SKILL_TEMPLATE)
+        self.assertIn("不要在 `ACTIVE.md` 中记录其自身哈希", SKILL_TEMPLATE)
+
+    def test_skill_requires_actionable_content_in_all_handoff_sections(self) -> None:
+        self.assertIn("纯闲聊", SKILL_TEMPLATE)
+        self.assertIn("可验证的完成标准", SKILL_TEMPLATE)
+        self.assertIn("只写已经落地的结果", SKILL_TEMPLATE)
+        self.assertIn("关键上下文与决策", SKILL_TEMPLATE)
+        self.assertIn("产物与变更", SKILL_TEMPLATE)
+        self.assertIn("测试、来源或人工检查", SKILL_TEMPLATE)
+        self.assertIn("分别说明阻塞与风险", SKILL_TEMPLATE)
+        self.assertIn("可直接执行的动作和完成条件", SKILL_TEMPLATE)

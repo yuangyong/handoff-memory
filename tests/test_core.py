@@ -1,4 +1,6 @@
+import hashlib
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -33,6 +35,25 @@ class CoreFlowTests(unittest.TestCase):
             self.assertEqual(config["project_name"], "示例项目")
             self.assertEqual(config["schema_version"], 1)
 
+    def test_active_template_guides_actionable_handoff_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            initialize_project(project, name="接续质量示例")
+
+            content = (project / ".ai-memory/ACTIVE.md").read_text(encoding="utf-8")
+            self.assertIn("纯闲聊", content)
+            self.assertIn("可验证的完成标准", content)
+            self.assertIn("范围边界", content)
+            self.assertIn("关键上下文与决策", content)
+            self.assertIn("产物与变更", content)
+            self.assertIn("验证与依据", content)
+            self.assertIn("测试、来源或人工检查", content)
+            self.assertIn("未覆盖项", content)
+            self.assertIn("阻塞：", content)
+            self.assertIn("风险：", content)
+            self.assertIn("完成条件", content)
+
     def test_init_is_idempotent_and_preserves_active_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -44,6 +65,51 @@ class CoreFlowTests(unittest.TestCase):
 
             self.assertFalse(result.created)
             self.assertEqual(active.read_text(encoding="utf-8"), "用户内容")
+
+    def test_managed_paths_reject_symlink_redirection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            outside = Path(directory) / "outside"
+            project.mkdir()
+            outside.mkdir()
+            link = project / ".ai-memory"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"当前环境不能创建符号链接：{exc}")
+
+            with self.assertRaisesRegex(HandoffError, "符号链接"):
+                initialize_project(project, name="越界示例")
+            self.assertEqual(list(outside.iterdir()), [])
+
+    @unittest.skipUnless(
+        os.name == "nt" and hasattr(Path, "is_junction"),
+        "仅在支持 Junction 检测的 Windows 上运行",
+    )
+    def test_managed_paths_reject_windows_junction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            outside = root / "outside"
+            project.mkdir()
+            outside.mkdir()
+            junction = project / ".ai-memory"
+            result = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(junction), str(outside)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            if result.returncode != 0:
+                self.skipTest("当前环境不能创建 Windows Junction")
+            try:
+                self.assertTrue(junction.is_junction())
+                with self.assertRaisesRegex(HandoffError, "符号链接"):
+                    initialize_project(project, name="Junction 越界示例")
+                self.assertEqual(list(outside.iterdir()), [])
+            finally:
+                junction.rmdir()
 
     def test_save_archives_valid_active_document(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -57,6 +123,25 @@ class CoreFlowTests(unittest.TestCase):
             self.assertTrue(result.archive_path.is_file())
             self.assertIn("实现恢复流程", result.archive_path.read_text(encoding="utf-8"))
 
+    def test_save_records_active_digest_in_config_and_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="摘要示例")
+            active = project / ".ai-memory/ACTIVE.md"
+            active.write_text(valid_handoff(), encoding="utf-8")
+
+            result = archive_active(project)
+
+            expected = hashlib.sha256(
+                (valid_handoff().rstrip("\n") + "\n").encode("utf-8")
+            ).hexdigest()
+            config = json.loads(
+                (project / ".ai-memory/config.json").read_text(encoding="utf-8")
+            )
+            archive = result.archive_path.read_text(encoding="utf-8")
+            self.assertEqual(config["last_saved_active_sha256"], expected)
+            self.assertIn(f"active_sha256: {expected}", archive)
+
     def test_save_rejects_missing_required_sections(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -65,6 +150,19 @@ class CoreFlowTests(unittest.TestCase):
 
             with self.assertRaises(HandoffError):
                 archive_active(project)
+
+    def test_validation_rejects_duplicate_or_alias_sections(self) -> None:
+        duplicate = valid_handoff().replace(
+            "## 已完成\n", "## 已完成\n\n- 第一份。\n\n## 已完成\n", 1
+        )
+        mixed_alias = valid_handoff().replace(
+            "## 修改文件\n",
+            "## 产物与变更\n\n- 新标题内容。\n\n## 修改文件\n",
+            1,
+        )
+
+        self.assertTrue(any("重复" in error for error in validate_active(duplicate)))
+        self.assertTrue(any("重复" in error for error in validate_active(mixed_alias)))
 
     def test_save_rejects_unchanged_placeholder_template(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -83,13 +181,27 @@ class CoreFlowTests(unittest.TestCase):
             active_path = project / ".ai-memory/ACTIVE.md"
             content = active_path.read_text(encoding="utf-8")
             content = content.replace(
-                "说明本轮正在解决的问题、期望结果和范围。",
-                "完善新旧会话之间的任务接续。",
-            ).replace("补充当前任务。", "运行测试并检查恢复输出。")
+                "说明要解决的问题、可验证的完成标准和范围边界。",
+                "完善新旧会话之间的任务接续，完成标准是恢复信息可直接执行。",
+            ).replace(
+                "写出可直接执行的动作和完成条件。",
+                "运行测试并检查恢复输出；完成条件是全部检查通过。",
+            )
 
             result = archive_active(project, content=content)
 
             self.assertTrue(result.archive_path.exists())
+
+    def test_save_accepts_legacy_programming_and_general_task_sections(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="兼容示例")
+
+            legacy = archive_active(project, content=valid_handoff())
+            general = archive_active(project, content=valid_general_handoff())
+
+            self.assertTrue(legacy.archive_path.exists())
+            self.assertTrue(general.archive_path.exists())
 
     def test_active_document_uses_tiered_size_limits(self) -> None:
         medium = valid_handoff().replace("实现恢复流程。", "A" * 17_000)
@@ -111,6 +223,16 @@ class CoreFlowTests(unittest.TestCase):
             result = archive_active(project)
 
             self.assertTrue(any("16KB" in warning for warning in result.warnings))
+
+    def test_quality_warns_about_unverifiable_result_and_unordered_next_step(self) -> None:
+        content = valid_handoff().replace(
+            "- 单元测试待执行。", "- 测试已经通过。"
+        ).replace("1. 编写实现。", "继续处理剩余工作。")
+
+        warnings = warn_active(content)
+
+        self.assertTrue(any("验证与依据" in warning for warning in warnings))
+        self.assertTrue(any("下一步" in warning for warning in warnings))
 
     def test_save_requires_explicit_confirmation_above_64kb(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -136,6 +258,39 @@ class CoreFlowTests(unittest.TestCase):
             with self.assertRaises(HandoffError):
                 archive_active(project)
 
+    @unittest.skipUnless(shutil.which("git"), "当前环境未安装 Git")
+    def test_save_and_resume_block_secret_like_repository_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            run_git(project, "init")
+            initialize_project(project, name="仓库元数据安全")
+            (project / ".ai-memory/ACTIVE.md").write_text(valid_handoff(), encoding="utf-8")
+            secret_name = "sk-" + "A" * 24 + ".txt"
+            (project / secret_name).write_text("内容\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(HandoffError, "仓库元数据") as save_error:
+                archive_active(project)
+            self.assertNotIn(secret_name, str(save_error.exception))
+            report = inspect_project(project)
+            with self.assertRaisesRegex(HandoffError, "仓库元数据") as resume_error:
+                render_resume(report)
+            self.assertNotIn(secret_name, str(resume_error.exception))
+
+    def test_resume_blocks_secret_like_untrusted_config_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="配置安全")
+            (project / ".ai-memory/ACTIVE.md").write_text(valid_handoff(), encoding="utf-8")
+            config_path = project / ".ai-memory/config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            secret = "sk-" + "B" * 24
+            config["project_name"] = secret
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+
+            with self.assertRaisesRegex(HandoffError, "仓库元数据") as error:
+                render_resume(inspect_project(project))
+            self.assertNotIn(secret, str(error.exception))
+
     def test_resume_contains_active_content_and_current_repository_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -146,7 +301,7 @@ class CoreFlowTests(unittest.TestCase):
             output = render_resume(report, output_format="markdown")
 
             self.assertIn("实现恢复流程", output)
-            self.assertIn("当前仓库核验", output)
+            self.assertIn("当前状态核验", output)
             self.assertIn("未识别 Git 或 SVN", output)
 
     def test_resume_shows_safety_and_freshness_before_handoff_content(self) -> None:
@@ -158,8 +313,9 @@ class CoreFlowTests(unittest.TestCase):
             output = render_resume(inspect_project(project), output_format="markdown")
 
             self.assertLess(output.index("安全提示"), output.index("实现恢复流程"))
-            self.assertLess(output.index("当前仓库核验"), output.index("实现恢复流程"))
+            self.assertLess(output.index("当前状态核验"), output.index("实现恢复流程"))
             self.assertIn("上次保存：尚未生成快照", output)
+            self.assertIn("暂时无法核验一致性", output)
 
     def test_resume_warns_when_handoff_is_older_than_seven_days(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -190,6 +346,77 @@ class CoreFlowTests(unittest.TestCase):
             self.assertEqual(payload["schema_version"], 1)
             self.assertIn("active", payload)
             self.assertIn("repository", payload)
+
+    def test_resume_reports_active_content_changed_after_save(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="漂移示例")
+            active = project / ".ai-memory/ACTIVE.md"
+            active.write_text(valid_handoff(), encoding="utf-8")
+            archive_active(project)
+            active.write_text(
+                valid_handoff().replace("实现恢复流程。", "实现新的恢复流程。"),
+                encoding="utf-8",
+            )
+
+            report = inspect_project(project)
+            markdown = render_resume(report, output_format="markdown")
+            payload = json.loads(render_resume(report, output_format="json"))
+
+            self.assertFalse(report.active_matches_saved)
+            self.assertIn("ACTIVE.md 在上次保存后已变化", markdown)
+            self.assertFalse(payload["active_matches_saved"])
+            self.assertEqual(payload["active_sha256"], report.active_sha256)
+            self.assertEqual(
+                payload["last_saved_active_sha256"], report.saved_active_sha256
+            )
+
+    def test_resume_treats_malformed_saved_digest_as_unverifiable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="异常摘要示例")
+            active = project / ".ai-memory/ACTIVE.md"
+            active.write_text(valid_handoff(), encoding="utf-8")
+            archive_active(project)
+            config_path = project / ".ai-memory/config.json"
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+            config["last_saved_active_sha256"] = "不是有效摘要"
+            config_path.write_text(
+                json.dumps(config, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            report = inspect_project(project)
+
+            self.assertIsNone(report.saved_active_sha256)
+            self.assertIsNone(report.active_matches_saved)
+
+    def test_resume_is_read_only_and_reports_saved_content_match(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            initialize_project(project, name="只读示例")
+            active = project / ".ai-memory/ACTIVE.md"
+            active.write_text(valid_handoff(), encoding="utf-8")
+            archive_active(project)
+            memory = project / ".ai-memory"
+            before = {
+                path.relative_to(memory): path.read_bytes()
+                for path in memory.rglob("*")
+                if path.is_file()
+            }
+
+            report = inspect_project(project)
+            markdown = render_resume(report, output_format="markdown")
+            render_resume(report, output_format="json")
+
+            after = {
+                path.relative_to(memory): path.read_bytes()
+                for path in memory.rglob("*")
+                if path.is_file()
+            }
+            self.assertTrue(report.active_matches_saved)
+            self.assertIn("ACTIVE.md 与上次保存正文一致", markdown)
+            self.assertEqual(after, before)
 
     def test_resume_refuses_to_echo_detected_secret(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -295,6 +522,40 @@ def valid_handoff() -> str:
 ## 下一步
 
 1. 编写实现。
+"""
+
+
+def valid_general_handoff() -> str:
+    return """# 当前任务交接
+
+## 当前目标
+
+完成一份面向新用户的产品说明，完成标准是覆盖定位和使用边界。
+
+## 已完成
+
+- 已确定目标读者和内容结构。
+
+## 关键上下文与决策
+
+- 使用中文短句，原因是目标读者需要快速浏览。
+
+## 产物与变更
+
+- 产品说明草稿 — 已完成定位章节。
+
+## 验证与依据
+
+- 人工检查：定位章节覆盖目标用户与非目标场景；示例尚未验证。
+
+## 阻塞与风险
+
+- 阻塞：无。
+- 风险：示例可能不足。
+
+## 下一步
+
+1. 补充两个使用示例；完成条件是分别覆盖写作和研究任务。
 """
 
 

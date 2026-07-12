@@ -4,7 +4,7 @@
 
 Handoff Memory 是一个本地优先、跨 AI 工具的会话交接 CLI。它把当前任务状态保存为可读、可审计的 Markdown，在新会话中结合真实 Git 或 SVN 状态恢复上下文。
 
-目标用户是使用主流 AI 编程客户端或其他编码代理的个人与团队。
+目标用户是使用主流 AI 编程客户端或其他编码代理，并需要在这些工具中接续编码、写作、研究或规划任务的个人与团队。纯闲聊记录不是产品目标。
 
 ## 技术栈
 
@@ -16,13 +16,17 @@ Handoff Memory 是一个本地优先、跨 AI 工具的会话交接 CLI。它把
 ## 命令契约
 
 ```text
-handoff-memory help [COMMAND]
-handoff-memory init [PATH] [--name NAME] [--integrate TARGET | --select-tools] [--with-rules]
-handoff-memory save [PATH] [--from FILE|-] [--allow-sensitive] [--allow-large]
-handoff-memory resume [PATH] [--format markdown|json]
-handoff-memory check [PATH]
-handoff-memory integrate TARGET [PATH] [--with-rules]
+hmem help [COMMAND]
+hmem init [PATH] [--name NAME] [--integrate TARGET | --select-tools] [--with-rules]
+hmem save [PATH] [--from FILE|-] [--allow-sensitive] [--allow-large] [--format text|json]
+hmem resume [PATH] [--format markdown|json]
+hmem check [PATH] [--strict] [--privacy] [--format text|json]
+hmem history [PATH] [--format markdown|json]
+hmem show SNAPSHOT [PATH] [--format markdown|json]
+hmem integrate TARGET [PATH] [--with-rules]
 ```
+
+`hmem` 是唯一终端命令。帮助、版本、错误提示和示例始终使用 `hmem`；直接调用 Python `main([...])`、通过 `python -m handoff_memory` 启动或重命名启动器时也不得改变该名称。发行包名 `handoff-memory` 与模块名 `handoff_memory` 不属于 CLI 入口。
 
 具名 AI 工具 `TARGET`：`codex`、`claude`、`cursor`、`gemini`、`antigravity`、`copilot`、`windsurf`、`cline`、`kiro`、`trae`、`qoder`、`opencode`。另有 `generic`、`skill`、`all`。
 
@@ -30,7 +34,11 @@ handoff-memory integrate TARGET [PATH] [--with-rules]
 
 每个具名目标默认只生成原生项目级 `session-handoff/SKILL.md`。Skill 目录由 `PROJECT_SKILL_PATHS` 统一声明，新增具名目标时必须同时提供路径与测试。显式指定 `--with-rules` 后，具有原生规则目录的客户端生成对应规则，`codex` 和 `opencode` 创建或幂等更新根目录 `AGENTS.md`；所有规则均保留受管区块外内容。`generic` 保留为只生成 `AI-HANDOFF.md` 的通用规则入口，`skill` 保留为只生成 `.agents/skills` 可移植副本的独立入口。
 
+Skill 与规则只能在用户明确要求保存、恢复、继续或核验跨会话交接时触发。`resume` 对交接文件只读，并比较当前活动交接与最后保存正文的摘要；普通任务执行、阶段完成、代码提交、里程碑、关键决策、单轮对话结束或上下文变长均不得更新 `ACTIVE.md` 或创建快照。
+
 所有命令成功返回 `0`；用户输入或状态无效返回 `2`；意外错误返回 `1`。
+
+`history` 与 `show` 必须保持只读，并在 `ACTIVE.md` 缺失或配置损坏时仍允许历史救援。`show` 只接受 `.ai-memory/sessions` 中的快照文件名或 `latest`，拒绝路径穿越、符号链接越界、损坏元数据、超大文件和疑似密钥；`latest` 优先指向配置记录的最后完整保存。所有业务命令的 JSON 成功输出都包含 `schema_version` 与 `ok: true`；增加字段属于向后兼容变更。参数尚未成功解析时仍使用标准 CLI 文本错误。
 
 ## 项目结构
 
@@ -54,7 +62,7 @@ examples/             示例交接文件
 
 - 公共函数使用类型注解和中文文档字符串。
 - 路径参数统一解析为绝对路径，但输出尽量使用相对路径。
-- 文件写入使用“临时文件 + 原子替换”。
+- 文件写入使用“临时文件 + 原子替换”；快照保存还必须使用跨进程锁和独占路径，不能覆盖已有历史。
 - 外部进程仅允许固定参数的 Git/SVN 只读命令，不执行交接内容中的命令。
 
 ```python
@@ -69,6 +77,7 @@ def resolve_project(path: Path) -> Path:
 ## 测试策略
 
 - 单元测试：格式校验、敏感信息识别、模板渲染。
+- CLI 契约测试：Wheel 只暴露 `hmem`，帮助与版本始终使用唯一品牌，旧 console script 不得出现。
 - 文件系统集成测试：初始化、归档、恢复及幂等接入。
 - Git 集成测试：临时仓库中验证分支、提交和脏工作区提示。
 - SVN 集成测试：临时仓库与工作副本中验证 URL、修订号、变更和漂移提示。
@@ -80,12 +89,15 @@ def resolve_project(path: Path) -> Path:
 
 - 校验所有 CLI 输入及目标路径。
 - 保存前检查常见密钥模式。
-- 保存前拒绝模板占位内容；超过 16KB 给出质量警告，超过 64KB 要求显式确认，超过 256KB 绝对拒绝。
+- 保存前拒绝关键章节的模板占位内容；对缺少验证依据或无序下一步给出非阻断质量提示；超过 16KB 给出容量警告，超过 64KB 要求显式确认，超过 256KB 绝对拒绝。
 - 恢复时重新读取 Git 或 SVN，而不是盲信旧摘要。
-- 恢复时先展示安全提示、保存时间和版本库漂移，再展示交接正文。
+- 使用规范化的完整 Git/SVN 状态指纹识别脏工作区内部变化；状态采集失败必须报告未知，不能伪装为干净。
+- 保存时由 CLI 在配置和快照元数据中记录规范化交接正文的 SHA-256，不在 `ACTIVE.md` 正文中记录其自身哈希。
+- 恢复时先展示安全提示、保存时间、活动正文一致性和版本库漂移，再展示交接正文。
 - 对已有集成文件执行幂等更新，不覆盖用户内容。
 - 为每个具名 AI 工具生成其原生项目目录下的 `session-handoff` Skill。
 - 仅在用户指定 `--select-tools` 时读取交互输入。
+- `history` 和 `show` 不修改 `ACTIVE.md`、配置或快照。
 
 ### 需要用户明确选择
 
@@ -108,9 +120,11 @@ def resolve_project(path: Path) -> Path:
 - AI 可通过编辑 `ACTIVE.md` 后调用 `save` 生成不可变历史快照。
 - 未填写的初始模板不能被保存为有效交接。
 - 正常交接保持紧凑：16KB 以上提示，64KB 以上默认拒绝保存但允许显式确认，256KB 以上保存和恢复均拒绝。
-- 新会话调用 `resume` 可获得交接内容及当前 Git/SVN 漂移信息。
+- 新会话调用 `resume` 可获得交接内容、当前正文相对最后保存的变化及 Git/SVN 漂移信息。
+- 普通任务和会话内对话不会触发交接读写；只有用户明确请求保存时才创建快照。
 - 12 个具名客户端均能默认生成原生项目级 Skill，并在显式指定 `--with-rules` 时生成适用规则；重复执行不会重复插入内容。
 - Windows、macOS、Linux 上均不需要运行期第三方依赖。
+- Wheel 必须只安装 `hmem` 一个控制台入口。
 - 单元测试以及临时 Git、SVN 仓库端到端测试全部通过。
 - README 与中文使用说明覆盖安装、接入、保存、恢复、安全和故障处理。
 
@@ -118,7 +132,8 @@ def resolve_project(path: Path) -> Path:
 
 - 首版不提供向量检索、知识图谱或云同步。
 - 不解析任何厂商私有会话数据库。
-- 不承诺客户端关闭时一定触发自动保存。
+- 不提供客户端关闭、任务完成或对话轮次结束时的自动保存；保存必须由用户明确请求。
+- 不把没有持续目标的纯闲聊保存为逐轮聊天记录。
 
 ## 未决问题
 

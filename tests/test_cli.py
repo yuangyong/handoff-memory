@@ -15,6 +15,47 @@ from tests.test_core import valid_handoff
 
 
 class CliTests(unittest.TestCase):
+    def test_pyproject_exposes_only_hmem_cli_entry(self) -> None:
+        pyproject = (Path(__file__).parents[1] / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+        scripts = pyproject.split("[project.scripts]", 1)[1].split("[", 1)[0]
+
+        self.assertEqual(scripts.strip(), 'hmem = "handoff_memory.cli:main"')
+
+    def test_direct_main_call_uses_hmem_as_canonical_name(self) -> None:
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            with self.assertRaises(SystemExit) as raised:
+                main(["--help"])
+
+        content = output.getvalue()
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("usage: hmem", content)
+        self.assertIn("hmem init . --select-tools", content)
+        self.assertNotIn("handoff-memory init . --select-tools", content)
+
+    def test_help_and_version_always_use_hmem_brand(self) -> None:
+        help_output = io.StringIO()
+        with patch.object(sys, "argv", ["handoff-memory", "help", "save"]):
+            with redirect_stdout(help_output):
+                self.assertEqual(main(), 0)
+
+        help_content = help_output.getvalue()
+        self.assertIn("usage: hmem save", help_content)
+        self.assertIn("hmem save . --from handoff.md", help_content)
+        self.assertNotIn("usage: handoff-memory", help_content)
+
+        version_output = io.StringIO()
+        with patch.object(sys, "argv", ["handoff-memory", "--version"]):
+            with redirect_stdout(version_output):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(version_output.getvalue().strip(), f"hmem {__version__}")
+
     def test_help_command_prints_detailed_overview(self) -> None:
         output = io.StringIO()
 
@@ -83,7 +124,11 @@ class CliTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0)
-        self.assertIn("跨 AI 工具", result.stdout.decode("utf-8"))
+        output = result.stdout.decode("utf-8")
+        self.assertIn("跨 AI 工具", output)
+        self.assertIn("usage: hmem", output)
+        self.assertIn("hmem resume .", output)
+        self.assertNotIn("handoff-memory resume .", output)
 
     def test_utf8_standard_input_works_in_subprocess(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -127,6 +172,34 @@ class CliTests(unittest.TestCase):
                 self.assertEqual(main(["check", str(project)]), 0)
 
             self.assertIn("实现恢复流程", output.getvalue())
+
+    def test_resume_commands_do_not_modify_memory_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            output = io.StringIO()
+            self.assertEqual(main(["init", str(project), "--name", "只读示例"]), 0)
+            source = project / "handoff.md"
+            source.write_text(valid_handoff(), encoding="utf-8")
+            self.assertEqual(main(["save", str(project), "--from", str(source)]), 0)
+            memory = project / ".ai-memory"
+            before = {
+                path.relative_to(memory): path.read_bytes()
+                for path in memory.rglob("*")
+                if path.is_file()
+            }
+
+            with redirect_stdout(output):
+                self.assertEqual(main(["resume", str(project)]), 0)
+                self.assertEqual(
+                    main(["resume", str(project), "--format", "json"]), 0
+                )
+
+            after = {
+                path.relative_to(memory): path.read_bytes()
+                for path in memory.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(after, before)
 
     def test_init_with_codex_creates_skill_without_new_agents_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
