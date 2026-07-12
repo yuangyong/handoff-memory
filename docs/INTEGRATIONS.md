@@ -52,6 +52,68 @@ handoff-memory integrate gemini .
 
 更新 `GEMINI.md` 中的受管区块。
 
+## GitHub Copilot
+
+```powershell
+handoff-memory integrate copilot .
+```
+
+更新 `.github/copilot-instructions.md`。这是 [GitHub Copilot 官方支持的仓库级通用说明文件](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions?tool=vscode)。
+
+## Windsurf
+
+```powershell
+handoff-memory integrate windsurf .
+```
+
+创建 `.windsurf/rules/handoff-memory.md`，使用 [Windsurf Rules](https://docs.windsurf.com/zh/windsurf/cascade/memories) 的 `model_decision` 触发方式，仅在保存、恢复或继续会话相关请求中加载完整规则。
+
+## Cline
+
+```powershell
+handoff-memory integrate cline .
+```
+
+创建 [Cline 工作区规则](https://docs.cline.bot/customization/cline-rules) `.clinerules/handoff-memory.md`。
+
+## Kiro
+
+```powershell
+handoff-memory integrate kiro .
+```
+
+创建 [Kiro Steering](https://kiro.dev/docs/steering/) 文件 `.kiro/steering/handoff-memory.md`，使用 `auto` inclusion，根据描述按需加载会话交接流程。
+
+## TRAE
+
+```powershell
+handoff-memory integrate trae .
+```
+
+更新 [TRAE 项目规则](https://forum.trae.cn/t/topic/52) `.trae/rules/project_rules.md` 中的受管区块，保留已有内容。
+
+## Qoder
+
+```powershell
+handoff-memory integrate qoder .
+```
+
+创建 [Qoder 项目规则](https://docs.qoder.com/user-guide/rules) `.qoder/rules/handoff-memory.md`。
+
+## OpenCode
+
+```powershell
+handoff-memory integrate opencode .
+```
+
+默认创建 `.opencode/skills/session-handoff/SKILL.md`，由 [OpenCode Agent Skills](https://opencode.ai/docs/skills) 的原生 `skill` 工具按需加载，不处理 `AGENTS.md`。需要常驻路由时显式执行：
+
+```powershell
+handoff-memory integrate opencode . --with-agents-rule
+```
+
+OpenCode 也支持 `.agents/skills`，但使用独立的 `.opencode/skills` 路径可以清楚表达所选客户端，并避免与 Codex 接入状态混淆。
+
 ## 通用 AI
 
 ```powershell

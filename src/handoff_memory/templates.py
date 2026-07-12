@@ -63,7 +63,7 @@ GENERIC_RULE = """<!-- handoff-memory:start -->
 <!-- handoff-memory:end -->"""
 
 
-CODEX_ROUTING_RULE = """<!-- handoff-memory:start -->
+AGENTS_ROUTING_RULE = """<!-- handoff-memory:start -->
 ## 会话交接
 
 - 当用户要求保存会话、恢复或继续上次任务时，使用 `session-handoff` Skill。
@@ -73,6 +73,23 @@ CODEX_ROUTING_RULE = """<!-- handoff-memory:start -->
 CURSOR_RULE = """---
 description: 跨会话任务交接与恢复
 alwaysApply: true
+---
+
+""" + GENERIC_RULE + "\n"
+
+
+WINDSURF_RULE = """---
+trigger: model_decision
+description: 当用户需要保存、恢复或继续上一次 AI 编程会话时使用。
+---
+
+""" + GENERIC_RULE + "\n"
+
+
+KIRO_RULE = """---
+inclusion: auto
+name: handoff-memory
+description: 当用户需要保存、恢复或继续上一次 AI 编程会话时使用。
 ---
 
 """ + GENERIC_RULE + "\n"

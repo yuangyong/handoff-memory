@@ -4,7 +4,7 @@
 
 Handoff Memory 是一个本地优先、跨 AI 工具的会话交接 CLI。它把当前任务状态保存为可读、可审计的 Markdown，在新会话中结合真实 Git 或 SVN 状态恢复上下文。
 
-目标用户是使用 Codex、Claude Code、Cursor、Gemini CLI 或其他编码代理的个人与团队。
+目标用户是使用主流 AI 编程客户端或其他编码代理的个人与团队。
 
 ## 技术栈
 
@@ -16,16 +16,19 @@ Handoff Memory 是一个本地优先、跨 AI 工具的会话交接 CLI。它把
 ## 命令契约
 
 ```text
-handoff-memory init [PATH] [--name NAME] [--integrate TARGET] [--with-agents-rule]
+handoff-memory help [COMMAND]
+handoff-memory init [PATH] [--name NAME] [--integrate TARGET | --select-tools] [--with-agents-rule]
 handoff-memory save [PATH] [--from FILE|-] [--allow-sensitive] [--allow-large]
 handoff-memory resume [PATH] [--format markdown|json]
 handoff-memory check [PATH]
 handoff-memory integrate TARGET [PATH] [--with-agents-rule]
 ```
 
-支持的 `TARGET`：`generic`、`codex`、`claude`、`cursor`、`gemini`、`skill`、`all`。
+具名 AI 工具 `TARGET`：`codex`、`claude`、`cursor`、`gemini`、`copilot`、`windsurf`、`cline`、`kiro`、`trae`、`qoder`、`opencode`。另有 `generic`、`skill`、`all`。
 
-`codex` 目标默认只生成 `.agents/skills/session-handoff/SKILL.md` 项目级技能，不处理 `AGENTS.md`。显式指定 `--with-agents-rule` 后，无论文件是否存在，都创建或幂等更新简短的受管 Skill 路由，并保留已有文件的区块外内容。该选项只适用于 `codex` 和 `all`。`skill` 目标保留为只生成可移植技能的独立入口。
+`help` 与每个命令的 `-h/--help` 都必须可用，并包含中文用途、参数说明和示例。`--select-tools` 显式开启零依赖交互多选；直接回车跳过工具接入，`all` 选择全部具名客户端。它与 `--integrate` 互斥，非交互脚本继续使用 `--integrate TARGET`。
+
+`codex` 与 `opencode` 默认分别生成 `.agents/skills/session-handoff/SKILL.md` 和 `.opencode/skills/session-handoff/SKILL.md`，不处理 `AGENTS.md`。显式指定 `--with-agents-rule` 后，无论文件是否存在，都创建或幂等更新简短的受管 Skill 路由，并保留已有文件的区块外内容。该选项只适用于 `codex`、`opencode` 和 `all`。`skill` 目标保留为只生成可移植技能的独立入口。
 
 所有命令成功返回 `0`；用户输入或状态无效返回 `2`；意外错误返回 `1`。
 
@@ -81,12 +84,14 @@ def resolve_project(path: Path) -> Path:
 - 恢复时重新读取 Git 或 SVN，而不是盲信旧摘要。
 - 恢复时先展示安全提示、保存时间和版本库漂移，再展示交接正文。
 - 对已有集成文件执行幂等更新，不覆盖用户内容。
+- 仅在用户指定 `--select-tools` 时读取交互输入。
 
 ### 需要用户明确选择
 
 - 使用 `--allow-sensitive` 保存疑似敏感内容。
 - 使用 `--allow-large` 保存 64–256KB 的大型交接。
-- 使用 `--with-agents-rule` 创建或更新 Codex 的 `AGENTS.md` Skill 路由。
+- 使用 `--with-agents-rule` 为 Codex/OpenCode 创建或更新 `AGENTS.md` Skill 路由。
+- 使用 `--select-tools` 交互选择一个或多个 AI 编程客户端。
 - 使用 `--force` 替换已有初始化文件。
 
 ### 永不执行
@@ -103,7 +108,7 @@ def resolve_project(path: Path) -> Path:
 - 未填写的初始模板不能被保存为有效交接。
 - 正常交接保持紧凑：16KB 以上提示，64KB 以上默认拒绝保存但允许显式确认，256KB 以上保存和恢复均拒绝。
 - 新会话调用 `resume` 可获得交接内容及当前 Git/SVN 漂移信息。
-- 六类集成目标均能生成且重复执行不会重复插入内容。
+- 11 个具名客户端及通用接入目标均能生成，且重复执行不会重复插入内容。
 - Windows、macOS、Linux 上均不需要运行期第三方依赖。
 - 单元测试以及临时 Git、SVN 仓库端到端测试全部通过。
 - README 与中文使用说明覆盖安装、接入、保存、恢复、安全和故障处理。

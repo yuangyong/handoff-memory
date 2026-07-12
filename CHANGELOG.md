@@ -2,6 +2,20 @@
 
 本项目遵循语义化版本。
 
+## [0.7.0] - 2026-07-12
+
+### 新增
+
+- 新增 `handoff-memory help [COMMAND]`，提供总体说明、分命令参数、默认行为和常用示例。
+- `init --select-tools` 提供零依赖的交互式多选列表，可一次接入多个 AI 编程工具。
+- 新增 GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode 项目规则适配。
+
+### 改进
+
+- `all` 现在覆盖当前版本支持的 11 个具名 AI 编程客户端，并继续保持规则文件幂等更新。
+- Codex 与 OpenCode 默认使用项目级 Skill；`--with-agents-rule` 才会创建或更新共享的 `AGENTS.md` 路由。
+- 帮助标题和内置提示统一为中文；原有 `--integrate TARGET` 非交互接口保持兼容。
+
 ## [0.6.0] - 2026-07-12
 
 ### 改进

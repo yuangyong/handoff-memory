@@ -5,10 +5,30 @@ from __future__ import annotations
 from pathlib import Path
 
 from .core import atomic_write, resolve_project
-from .templates import CODEX_ROUTING_RULE, CURSOR_RULE, GENERIC_RULE, SKILL_TEMPLATE
+from .templates import (
+    AGENTS_ROUTING_RULE,
+    CURSOR_RULE,
+    GENERIC_RULE,
+    KIRO_RULE,
+    SKILL_TEMPLATE,
+    WINDSURF_RULE,
+)
 
 
-TARGETS = ("generic", "codex", "claude", "cursor", "gemini", "skill", "all")
+AI_TOOL_TARGETS = (
+    "codex",
+    "claude",
+    "cursor",
+    "gemini",
+    "copilot",
+    "windsurf",
+    "cline",
+    "kiro",
+    "trae",
+    "qoder",
+    "opencode",
+)
+TARGETS = ("generic", *AI_TOOL_TARGETS, "skill", "all")
 _START = "<!-- handoff-memory:start -->"
 _END = "<!-- handoff-memory:end -->"
 
@@ -23,15 +43,15 @@ def integrate(
     project = resolve_project(path)
     if target not in TARGETS:
         raise ValueError(f"未知接入目标：{target}")
-    if with_agents_rule and target not in {"codex", "all"}:
-        raise ValueError("--with-agents-rule 仅适用于 codex 或 all 接入目标")
-    targets = ("generic", "codex", "claude", "cursor", "gemini", "skill") if target == "all" else (target,)
+    if with_agents_rule and target not in {"codex", "opencode", "all"}:
+        raise ValueError("--with-agents-rule 仅适用于 codex、opencode 或 all 接入目标")
+    targets = ("generic", *AI_TOOL_TARGETS, "skill") if target == "all" else (target,)
     changed: list[Path] = []
     for item in targets:
         adapters = _adapters(
             project,
             item,
-            with_agents_rule=with_agents_rule and item == "codex",
+            with_agents_rule=(with_agents_rule and item in {"codex", "opencode"}),
         )
         for destination, content in adapters:
             before = destination.read_text(encoding="utf-8") if destination.exists() else ""
@@ -55,7 +75,7 @@ def _adapters(
             (project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE)
         ]
         if with_agents_rule:
-            adapters.append((project / "AGENTS.md", CODEX_ROUTING_RULE + "\n"))
+            adapters.append((project / "AGENTS.md", AGENTS_ROUTING_RULE + "\n"))
         return tuple(adapters)
     if target == "claude":
         return ((project / "CLAUDE.md", GENERIC_RULE + "\n"),)
@@ -63,6 +83,25 @@ def _adapters(
         return ((project / "GEMINI.md", GENERIC_RULE + "\n"),)
     if target == "cursor":
         return ((project / ".cursor/rules/handoff-memory.mdc", CURSOR_RULE),)
+    if target == "copilot":
+        return ((project / ".github/copilot-instructions.md", GENERIC_RULE + "\n"),)
+    if target == "windsurf":
+        return ((project / ".windsurf/rules/handoff-memory.md", WINDSURF_RULE),)
+    if target == "cline":
+        return ((project / ".clinerules/handoff-memory.md", GENERIC_RULE + "\n"),)
+    if target == "kiro":
+        return ((project / ".kiro/steering/handoff-memory.md", KIRO_RULE),)
+    if target == "trae":
+        return ((project / ".trae/rules/project_rules.md", GENERIC_RULE + "\n"),)
+    if target == "qoder":
+        return ((project / ".qoder/rules/handoff-memory.md", GENERIC_RULE + "\n"),)
+    if target == "opencode":
+        adapters = [
+            (project / ".opencode/skills/session-handoff/SKILL.md", SKILL_TEMPLATE)
+        ]
+        if with_agents_rule:
+            adapters.append((project / "AGENTS.md", AGENTS_ROUTING_RULE + "\n"))
+        return tuple(adapters)
     if target == "skill":
         return ((project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE),)
     raise ValueError(f"未知接入目标：{target}")

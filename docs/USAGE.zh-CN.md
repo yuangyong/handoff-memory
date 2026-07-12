@@ -45,6 +45,14 @@ $env:PYTHONPATH = "D:\path\to\handoff-memory\src"
 python -m handoff_memory --help
 ```
 
+安装后可使用独立帮助命令。未指定主题时显示总体说明，指定命令时显示参数、默认行为和示例：
+
+```powershell
+handoff-memory help
+handoff-memory help init
+handoff-memory help integrate
+```
+
 ## 4. 初始化目标项目
 
 只初始化核心目录：
@@ -53,15 +61,23 @@ python -m handoff_memory --help
 handoff-memory init D:\project\demo --name "Demo"
 ```
 
+交互选择一个或多个 AI 编程工具：
+
+```powershell
+handoff-memory init D:\project\demo --name "Demo" --select-tools
+```
+
+列表支持编号多选、`all` 全选和直接回车跳过。交互模式必须显式开启，因此 CI、安装脚本以及标准输入被占用的场景不会意外等待输入。
+
 同时安装指定客户端规则：
 
 ```powershell
 handoff-memory init D:\project\demo --name "Demo" --integrate codex
 ```
 
-将 `codex` 替换为当前使用的客户端。`all` 会生成所有不依赖已有配置的适配文件，只适合确实同时使用多个 AI 工具的项目。
+将 `codex` 替换为当前使用的客户端。具名目标包括 Codex、Claude Code、Cursor、Gemini、GitHub Copilot、Windsurf、Cline、Kiro、TRAE、Qoder 和 OpenCode。`all` 会生成全部已支持适配文件，只适合确实同时使用多个 AI 工具的项目。
 
-选择 `codex` 时默认只生成 `.agents/skills/session-handoff/SKILL.md`，不会处理 `AGENTS.md`。需要自动提醒时增加 `--with-agents-rule`；届时不存在的 `AGENTS.md` 会被创建，已有文件则保留原内容并追加受管路由。
+选择 `codex` 或 `opencode` 时默认只生成对应项目级 Skill，不会处理 `AGENTS.md`。需要自动提醒时增加 `--with-agents-rule`；届时不存在的 `AGENTS.md` 会被创建，已有文件则保留原内容并追加受管路由。
 
 默认不会覆盖已有文件。只有明确确认 Handoff Memory 自有初始化内容可以重置时才使用：
 

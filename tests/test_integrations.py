@@ -2,11 +2,51 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from handoff_memory.integrations import integrate
+from handoff_memory.integrations import AI_TOOL_TARGETS, TARGETS, integrate
 from handoff_memory.templates import GENERIC_RULE, SKILL_TEMPLATE
 
 
 class IntegrationTemplateTests(unittest.TestCase):
+    def test_mainstream_ai_tools_have_named_targets(self) -> None:
+        expected = {
+            "codex",
+            "claude",
+            "cursor",
+            "gemini",
+            "copilot",
+            "windsurf",
+            "cline",
+            "kiro",
+            "trae",
+            "qoder",
+            "opencode",
+        }
+
+        self.assertEqual(set(AI_TOOL_TARGETS), expected)
+        self.assertTrue(expected.issubset(TARGETS))
+
+    def test_new_mainstream_integrations_use_official_project_rule_paths(self) -> None:
+        expected_paths = {
+            "copilot": ".github/copilot-instructions.md",
+            "windsurf": ".windsurf/rules/handoff-memory.md",
+            "cline": ".clinerules/handoff-memory.md",
+            "kiro": ".kiro/steering/handoff-memory.md",
+            "trae": ".trae/rules/project_rules.md",
+            "qoder": ".qoder/rules/handoff-memory.md",
+            "opencode": ".opencode/skills/session-handoff/SKILL.md",
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            for target, relative_path in expected_paths.items():
+                with self.subTest(target=target):
+                    changed = integrate(project, target)
+                    destination = project / relative_path
+                    self.assertEqual(changed, [destination])
+                    self.assertTrue(destination.is_file())
+                    self.assertIn("handoff-memory:start", destination.read_text(encoding="utf-8"))
+                    self.assertEqual(integrate(project, target), [])
+
     def test_codex_integration_leaves_existing_agents_untouched_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -48,6 +88,26 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertIn("使用 `session-handoff` Skill", agents.read_text(encoding="utf-8"))
             self.assertEqual(len(changed), 2)
 
+    def test_opencode_creates_project_skill_and_only_adds_agents_rule_explicitly(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            changed = integrate(project, "opencode")
+
+            self.assertEqual(
+                changed,
+                [project / ".opencode/skills/session-handoff/SKILL.md"],
+            )
+            self.assertFalse((project / "AGENTS.md").exists())
+
+            changed = integrate(project, "opencode", with_agents_rule=True)
+
+            self.assertEqual(changed, [project / "AGENTS.md"])
+            self.assertIn(
+                "使用 `session-handoff` Skill",
+                (project / "AGENTS.md").read_text(encoding="utf-8"),
+            )
+
     def test_codex_integration_creates_official_project_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -82,7 +142,7 @@ class IntegrationTemplateTests(unittest.TestCase):
             changed = integrate(project, "all", with_agents_rule=True)
 
             self.assertTrue((project / "AGENTS.md").is_file())
-            self.assertEqual(len(changed), 6)
+            self.assertEqual(len(changed), 13)
 
     def test_cursor_integration_preserves_existing_rule_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -122,7 +182,12 @@ class IntegrationTemplateTests(unittest.TestCase):
             self.assertTrue((project / ".cursor/rules/handoff-memory.mdc").is_file())
             self.assertTrue((project / "AI-HANDOFF.md").is_file())
             self.assertTrue((project / ".agents/skills/session-handoff/SKILL.md").is_file())
-            self.assertEqual(len(changed), 5)
+            self.assertTrue((project / ".trae/rules/project_rules.md").is_file())
+            self.assertTrue((project / ".qoder/rules/handoff-memory.md").is_file())
+            self.assertTrue(
+                (project / ".opencode/skills/session-handoff/SKILL.md").is_file()
+            )
+            self.assertEqual(len(changed), 12)
 
             unchanged = integrate(project, "all")
             self.assertEqual(unchanged, [])

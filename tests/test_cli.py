@@ -6,12 +6,53 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from handoff_memory.cli import main
 from tests.test_core import valid_handoff
 
 
 class CliTests(unittest.TestCase):
+    def test_help_command_prints_detailed_overview(self) -> None:
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            code = main(["help"])
+
+        content = output.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("常用示例", content)
+        self.assertIn("help [COMMAND]", content)
+        self.assertIn("--select-tools", content)
+        self.assertIn("显示版本并退出", content)
+
+    def test_help_command_prints_detailed_init_help(self) -> None:
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            code = main(["help", "init"])
+
+        content = output.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("交互选择", content)
+        self.assertIn("--integrate", content)
+        self.assertIn("--with-agents-rule", content)
+        self.assertIn("示例", content)
+
+    def test_integrate_help_lists_supported_targets_and_output_paths(self) -> None:
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            code = main(["help", "integrate"])
+
+        content = output.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("OpenCode", content)
+        self.assertIn(".opencode/skills/session-handoff/SKILL.md", content)
+        self.assertIn("TRAE", content)
+        self.assertIn(".trae/rules/project_rules.md", content)
+        self.assertNotIn("Roo Code", content)
+
     def test_help_output_is_utf8_in_subprocess(self) -> None:
         environment = os.environ.copy()
         environment["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
@@ -81,6 +122,84 @@ class CliTests(unittest.TestCase):
             self.assertTrue(
                 (project / ".agents/skills/session-handoff/SKILL.md").is_file()
             )
+
+    def test_init_can_interactively_select_multiple_ai_tools(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            output = io.StringIO()
+
+            with patch("builtins.input", return_value="1,3,5"), redirect_stdout(output):
+                code = main(["init", str(project), "--select-tools"])
+
+            self.assertEqual(code, 0)
+            self.assertTrue(
+                (project / ".agents/skills/session-handoff/SKILL.md").is_file()
+            )
+            self.assertTrue(
+                (project / ".cursor/rules/handoff-memory.mdc").is_file()
+            )
+            self.assertTrue(
+                (project / ".github/copilot-instructions.md").is_file()
+            )
+            self.assertFalse((project / "CLAUDE.md").exists())
+            self.assertIn("Codex", output.getvalue())
+            self.assertIn("GitHub Copilot", output.getvalue())
+
+    def test_interactive_tool_selection_can_be_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            with patch("builtins.input", return_value=""):
+                code = main(["init", str(project), "--select-tools"])
+
+            self.assertEqual(code, 0)
+            self.assertTrue((project / ".ai-memory/ACTIVE.md").is_file())
+            self.assertFalse((project / ".agents").exists())
+
+    def test_interactive_selection_retries_invalid_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            output = io.StringIO()
+
+            with patch("builtins.input", side_effect=["99", "2"]), redirect_stdout(output):
+                code = main(["init", str(project), "--select-tools"])
+
+            self.assertEqual(code, 0)
+            self.assertTrue((project / "CLAUDE.md").is_file())
+            self.assertIn("无效选择", output.getvalue())
+
+    def test_interactive_codex_selection_can_add_agents_rule_with_other_tools(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+
+            with patch("builtins.input", return_value="1,3"):
+                code = main(
+                    ["init", str(project), "--select-tools", "--with-agents-rule"]
+                )
+
+            self.assertEqual(code, 0)
+            self.assertTrue((project / "AGENTS.md").is_file())
+            self.assertTrue(
+                (project / ".cursor/rules/handoff-memory.mdc").is_file()
+            )
+
+    def test_interactive_agents_rule_requires_codex_before_initialization(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            error = io.StringIO()
+
+            with (
+                patch("builtins.input", return_value="3"),
+                redirect_stderr(error),
+            ):
+                code = main(
+                    ["init", str(project), "--select-tools", "--with-agents-rule"]
+                )
+
+            self.assertEqual(code, 2)
+            self.assertFalse((project / ".ai-memory").exists())
+            self.assertIn("codex", error.getvalue())
+
 
     def test_init_with_codex_appends_route_to_existing_agents_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
