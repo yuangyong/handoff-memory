@@ -21,8 +21,17 @@ CANONICAL_SKILL = (
 DEFAULT_TARGET = REPOSITORY / "skills" / "session-handoff" / "SKILL.md"
 
 
+def _configure_utf8_output() -> None:
+    """确保 Windows 旧代码页和重定向场景可以输出中文诊断。"""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """同步分发副本，或只读检查副本是否与 canonical 资源一致。"""
+    _configure_utf8_output()
     parser = argparse.ArgumentParser(
         description="同步仓库顶层 session-handoff Skill 分发副本。"
     )

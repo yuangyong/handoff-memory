@@ -14,6 +14,8 @@
 ### 修复
 
 - 修复 Windows 并发保存争用空锁文件时，锁前初始化写入可能触发 `PermissionError` 的问题。
+- 修复 macOS `/var` 别名和 Windows 8.3 短路径导致接入测试误判返回路径的问题。
+- 修复 Skill 同步脚本在 Windows 非 UTF-8 代码页输出中文时触发 `UnicodeEncodeError` 的问题。
 
 ### 元数据
 

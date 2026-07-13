@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,8 @@ class IntegrationTemplateTests(unittest.TestCase):
     def test_sync_script_generates_and_checks_distributable_copy(self) -> None:
         repository = Path(__file__).parents[1]
         script = repository / "scripts/sync_session_handoff_skill.py"
+        environment = os.environ.copy()
+        environment["PYTHONIOENCODING"] = "cp1252"
 
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "SKILL.md"
@@ -34,6 +37,8 @@ class IntegrationTemplateTests(unittest.TestCase):
                 cwd=repository,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                env=environment,
                 check=False,
             )
             checked = subprocess.run(
@@ -47,6 +52,8 @@ class IntegrationTemplateTests(unittest.TestCase):
                 cwd=repository,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                env=environment,
                 check=False,
             )
 
@@ -66,6 +73,8 @@ class IntegrationTemplateTests(unittest.TestCase):
                 cwd=repository,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                env=environment,
                 check=False,
             )
 
@@ -102,7 +111,7 @@ class IntegrationTemplateTests(unittest.TestCase):
         }
 
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve()
             for target, relative_path in expected_paths.items():
                 with self.subTest(target=target):
                     changed = integrate(project, target, with_rules=True)
@@ -114,7 +123,7 @@ class IntegrationTemplateTests(unittest.TestCase):
 
     def test_named_integrations_create_only_skills_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve()
 
             antigravity_changed = integrate(project, "antigravity")
             qoder_changed = integrate(project, "qoder")
@@ -151,7 +160,7 @@ class IntegrationTemplateTests(unittest.TestCase):
         for target, relative_path in expected_paths.items():
             with self.subTest(target=target):
                 with tempfile.TemporaryDirectory() as directory:
-                    project = Path(directory)
+                    project = Path(directory).resolve()
                     changed = integrate(project, target)
                     skill = project / relative_path
                     self.assertIn(skill, changed)
@@ -251,7 +260,7 @@ class IntegrationTemplateTests(unittest.TestCase):
 
     def test_opencode_creates_project_skill_and_only_adds_agents_rule_explicitly(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve()
 
             changed = integrate(project, "opencode")
 
@@ -379,7 +388,7 @@ class IntegrationTemplateTests(unittest.TestCase):
 
     def test_existing_skill_frontmatter_is_upgraded_with_template(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve()
             skill = project / ".agents/skills/session-handoff/SKILL.md"
             skill.parent.mkdir(parents=True)
             outdated = SKILL_TEMPLATE.replace(
@@ -396,7 +405,7 @@ class IntegrationTemplateTests(unittest.TestCase):
 
     def test_skill_upgrade_preserves_unknown_frontmatter_and_user_body(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve()
             skill = project / ".agents/skills/session-handoff/SKILL.md"
             skill.parent.mkdir(parents=True)
             customized = SKILL_TEMPLATE.replace(
