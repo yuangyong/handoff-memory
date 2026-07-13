@@ -13,7 +13,7 @@ body:
     attributes:
       label: Handoff Memory 版本
       description: 请粘贴 `hmem --version` 的输出。
-      placeholder: hmem 0.11.0
+      placeholder: hmem 0.11.1
     validations:
       required: true
 

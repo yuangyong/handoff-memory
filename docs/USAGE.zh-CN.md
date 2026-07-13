@@ -26,15 +26,17 @@ svn --version
 
 ## 3. 安装
 
-从源码目录安装：
+从 PyPI 安装到独立工具环境：
 
 ```powershell
-pipx install .
+uv tool install handoff-memory
 # 或
-uv tool install .
+pipx install handoff-memory
 ```
 
-更新本地开发版本：
+PyPI 是唯一正式分发渠道。项目不提供独立可执行文件、系统包管理器清单或远程安装脚本。
+
+源码安装仅用于开发仓库：
 
 ```powershell
 python -m pip install -e .
@@ -49,12 +51,10 @@ python -m handoff_memory --help
 
 ### 升级
 
-拉取最新源码后在 Handoff Memory 仓库根目录执行：
-
 ```powershell
-pipx install . --force
+uv tool upgrade handoff-memory
 # 或
-uv tool install . --force
+pipx upgrade handoff-memory
 ```
 
 开发模式安装（`pip install -e .`）的代码改动会自动生效，一般不需要重新执行。但如果更新涉及 `pyproject.toml` 中的入口点或元数据变更，应重新运行 `pip install -e .`。
