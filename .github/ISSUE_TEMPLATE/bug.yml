@@ -1,0 +1,83 @@
+name: 缺陷报告
+description: 报告可复现的错误、回归或兼容性问题
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报告问题。请先搜索现有 Issue，并对路径、仓库地址和输出进行脱敏。
+        **不要在公开 Issue 中粘贴密钥、Token、真实交接内容或未公开漏洞。** 安全问题请使用仓库 Security 页面中的私密报告入口。
+
+  - type: input
+    id: version
+    attributes:
+      label: Handoff Memory 版本
+      description: 请粘贴 `hmem --version` 的输出。
+      placeholder: hmem 0.11.0
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      description: 操作系统、Python 版本，以及相关 Git/SVN 或 AI 客户端版本。
+      placeholder: Windows 11；Python 3.12；Git 2.x；Codex
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 最小复现步骤
+      description: 优先使用空临时目录和虚构数据，列出完整命令与前置状态。
+      placeholder: |
+        1. 创建空目录……
+        2. 运行 `hmem init ...`
+        3. 运行……
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为与退出码
+      description: 只提供已脱敏输出，不要上传完整 `.ai-memory` 目录。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 复现频率
+      options:
+        - 每次都能复现
+        - 间歇性复现
+        - 仅复现一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 可提供已脱敏日志、相关链接或你已经尝试的规避方式。
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: 提交确认
+      options:
+        - label: 我已搜索现有 Issue，未发现相同问题。
+          required: true
+        - label: 我已删除密钥、真实交接内容和非必要个人信息。
+          required: true
+        - label: 这不是尚未公开的安全漏洞。
+          required: true

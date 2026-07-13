@@ -111,6 +111,26 @@ class CliTests(unittest.TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(__version__, match.group(1))
 
+    def test_package_metadata_uses_mit_and_public_maintainer(self) -> None:
+        pyproject = (Path(__file__).parents[1] / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+        license_text = (Path(__file__).parents[1] / "LICENSE").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertRegex(pyproject, r'(?m)^license = "MIT"$')
+        self.assertIn(
+            'authors = [{ name = "yuangyong", email = "2314042921@qq.com" }]',
+            pyproject,
+        )
+        self.assertIn(
+            'maintainers = [{ name = "yuangyong", email = "2314042921@qq.com" }]',
+            pyproject,
+        )
+        self.assertTrue(license_text.startswith("MIT License\n"))
+        self.assertIn("Copyright (c) 2026 yuangyong", license_text)
+
     def test_help_output_is_utf8_in_subprocess(self) -> None:
         environment = os.environ.copy()
         environment["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")

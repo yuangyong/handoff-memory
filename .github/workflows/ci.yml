@@ -8,8 +8,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -17,8 +22,8 @@ jobs:
         python-version: ["3.10", "3.13"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: 安装项目
@@ -34,9 +39,10 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.13"
       - name: 安装发布校验工具
@@ -56,9 +62,17 @@ jobs:
               names = stream.getnames()
           required_suffixes = {
               "CHANGELOG.md",
+              "CODE_OF_CONDUCT.md",
+              "CONTRIBUTING.md",
+              "LICENSE",
+              "README.en.md",
               "SECURITY.md",
+              "SUPPORT.md",
+              "docs/PUBLIC_RELEASE.md",
+              "docs/ROADMAP.md",
               "docs/decisions/ADR-010-machine-readable-operations-and-history.md",
               "docs/decisions/ADR-011-single-hmem-entry.md",
+              "docs/decisions/ADR-012-mit-license.md",
               "examples/ACTIVE.example.md",
               "scripts/sync_session_handoff_skill.py",
               "skills/session-handoff/SKILL.md",
@@ -121,7 +135,7 @@ jobs:
           hmem history "$project" --format json
           hmem show latest "$project" --format json
       - name: 保存发布构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: handoff-memory-dist
           path: dist/*
@@ -129,9 +143,10 @@ jobs:
 
   svn-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.13"
       - name: 安装 Subversion

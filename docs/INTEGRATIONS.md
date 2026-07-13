@@ -40,7 +40,7 @@ hmem integrate codex . --with-rules
 hmem integrate claude .
 ```
 
-默认根据 [Claude Code Skills](https://code.claude.com/docs/en/slash-commands) 创建 `.claude/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再更新 `CLAUDE.md`。如果自行配置 SessionStart、PreCompact 或 Stop hooks，可以调用 CLI，但 Handoff Memory 核心不依赖这些 hooks。尤其不要只在 SessionEnd 保存。
+默认根据 [Claude Code Skills](https://code.claude.com/docs/en/skills) 创建 `.claude/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再更新 `CLAUDE.md`。如果自行配置 SessionStart、PreCompact 或 Stop hooks，可以调用 CLI，但 Handoff Memory 核心不依赖这些 hooks。尤其不要只在 SessionEnd 保存。
 
 ## Cursor
 

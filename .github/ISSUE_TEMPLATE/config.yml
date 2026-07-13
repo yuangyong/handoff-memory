@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞私密报告
+    url: https://github.com/yuangyong/handoff-memory/security/policy
+    about: 不要公开披露密钥、真实交接内容或尚未修复的漏洞。
+  - name: 使用与支持说明
+    url: https://github.com/yuangyong/handoff-memory/blob/main/SUPPORT.md
+    about: 提交 Issue 前先查看自查步骤和最小复现要求。

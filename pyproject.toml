@@ -8,9 +8,10 @@ version = "0.11.0"
 description = "本地优先、跨 AI 工具的会话交接记忆 CLI"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "Apache-2.0"
+license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Handoff Memory Contributors" }]
+authors = [{ name = "yuangyong", email = "2314042921@qq.com" }]
+maintainers = [{ name = "yuangyong", email = "2314042921@qq.com" }]
 keywords = ["ai", "memory", "handoff", "codex", "claude", "cursor", "antigravity", "trae", "qoder"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -25,6 +26,8 @@ classifiers = [
 Repository = "https://github.com/yuangyong/handoff-memory"
 Documentation = "https://github.com/yuangyong/handoff-memory#readme"
 Issues = "https://github.com/yuangyong/handoff-memory/issues"
+Changelog = "https://github.com/yuangyong/handoff-memory/blob/main/CHANGELOG.md"
+Security = "https://github.com/yuangyong/handoff-memory/security/policy"
 
 [project.scripts]
 hmem = "handoff_memory.cli:main"

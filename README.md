@@ -2,6 +2,12 @@
 
 本地优先、跨 AI 工具的会话交接记忆 CLI。
 
+[中文](README.md) | [English](README.en.md)
+
+> **项目状态：Alpha（0.11.x）**
+>
+> 当前以源码安装为准，尚未在本文中宣称 PyPI 安装可用。公共 CLI 与带版本号的 JSON 输出遵循兼容性扩展原则，但 Alpha 阶段仍可能在明确迁移说明后调整边界。
+
 Handoff Memory 解决的不是“让模型记住一切”，而是一个更可验证的问题：**让下一次 AI 会话准确知道一项持续任务进行到哪里，并用当前产物、依据以及可用的仓库状态核验交接内容**。纯闲聊通常不需要交接。
 
 它不绑定模型、云服务或向量数据库。数据就是项目中的 Markdown，任何 AI、编辑器和人都能读取。
@@ -19,9 +25,31 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 
 ## 快速开始
 
+### 30 秒体验
+
+安装后，在任意希望启用会话交接的项目中运行：
+
+```powershell
+hmem init . --name "你的项目" --integrate codex
+```
+
+完成一次任务后，让 AI 按项目中的 `session-handoff` Skill 更新交接，再显式保存：
+
+```powershell
+hmem save .
+hmem resume .
+```
+
+`resume` 只读取和核验交接，不会执行交接中记录的命令。
+
 ### 安装
 
-在克隆后的 Handoff Memory 仓库根目录，推荐使用 `pipx` 或 `uv` 安装，避免污染目标项目环境：
+当前版本以 GitHub 源码安装为准。克隆仓库后，推荐使用 `pipx` 或 `uv` 安装，避免污染目标项目环境：
+
+```powershell
+git clone https://github.com/yuangyong/handoff-memory.git
+cd handoff-memory
+```
 
 ```powershell
 pipx install .
@@ -53,6 +81,8 @@ uv tool install . --force
 ```powershell
 python -m pip install -e .
 ```
+
+正式发布到 PyPI 后，安装命令和可信发布说明会在 README、[变更日志](CHANGELOG.md)及 GitHub Release 中同时更新。在此之前，不要根据包名推断 PyPI 上的同名项目由本仓库维护。
 
 ### 将流程引入一个项目
 
@@ -211,6 +241,24 @@ python -m compileall -q src tests
 python -m pip check
 ```
 
+完整贡献政策、测试要求和 Pull Request 规范见[贡献指南](CONTRIBUTING.md)。
+
+## 维护模式
+
+Handoff Memory 由 `yuangyong` 单独维护，当前不招募共同维护者。欢迎通过 Issue 报告可复现缺陷或提出建议；除明显的拼写、链接等小型修正外，提交 Pull Request 前请先通过 Issue 确认范围。是否采纳建议、合并贡献、安排路线图和发布版本由维护者决定，不承诺响应或合并时限。MIT License 允许任何人依法使用、修改和 Fork 项目。
+
+## 维护与反馈
+
+- 使用问题与故障排查：[支持说明](SUPPORT.md)
+- 功能建议与缺陷报告：[GitHub Issues](https://github.com/yuangyong/handoff-memory/issues)
+- 贡献政策：[贡献指南](CONTRIBUTING.md)
+- 公开协作行为规范：[行为准则](CODE_OF_CONDUCT.md)
+- 安全漏洞：[安全策略](SECURITY.md)，请勿在公开 Issue 中粘贴密钥、真实交接内容或可利用细节
+- 公开仓库与发布前检查：[公开发布清单](docs/PUBLIC_RELEASE.md)
+- 后续优先级与非目标：[路线图](docs/ROADMAP.md)
+
+当前提交作者邮箱是维护者专门用于开源身份的公开邮箱，无需重写 Git 历史。普通支持优先使用公开 Issue；安全问题遵循 `SECURITY.md` 的私密渠道。
+
 ## 开源许可
 
-Apache License 2.0。参见 [LICENSE](LICENSE)。
+MIT License。参见 [LICENSE](LICENSE)；采用该许可证的原因与影响见 [ADR-012](docs/decisions/ADR-012-mit-license.md)。
