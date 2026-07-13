@@ -68,7 +68,7 @@ jobs:
               "README.en.md",
               "SECURITY.md",
               "SUPPORT.md",
-              "docs/PUBLIC_RELEASE.md",
+              "docs/RELEASING.md",
               "docs/ROADMAP.md",
               "docs/decisions/ADR-010-machine-readable-operations-and-history.md",
               "docs/decisions/ADR-011-single-hmem-entry.md",

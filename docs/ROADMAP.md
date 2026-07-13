@@ -2,23 +2,18 @@
 
 Handoff Memory 当前处于 Alpha 阶段。路线图表达唯一维护者当前考虑的优先级和完成条件，不承诺固定日期；实际顺序会根据安全问题、兼容性变化、维护成本和用户反馈调整。
 
-## 近期：公开仓库准备
-
-- 完成完整 Git 历史与 Actions 产物敏感信息扫描。
-- 完善 README、贡献、安全、支持和仓库协作模板。
-- 持续验证 Windows 并发保存锁的长期稳定性；当前已修复空锁文件初始化写入竞态并增加确定性回归测试，公开前仍需通过 Windows CI 和压力复跑。
-- 为 Markdown 外部链接建立定期检查，及时发现厂商文档迁移。
-- 建立受保护默认分支、私密漏洞报告、Secret Scanning 和最小 Actions 权限。
-
-完成标准见[公开发布清单](PUBLIC_RELEASE.md)。
-
-## 中期：可重复发布
+## 近期：可重复发布
 
 - 建立 GitHub Release 与版本标签流程。
 - 使用 PyPI Trusted Publishing 和受保护 Environment，避免长期发布 Token。
 - 保证 CI 验证、GitHub Release 和 PyPI 上传使用同一份构建产物。
+- 持续核验受保护默认分支、私密漏洞报告、Secret Scanning、Push Protection 和最小 Actions 权限。
+- 为 Markdown 外部链接建立定期检查，及时发现厂商文档迁移。
+- 持续验证 Windows 并发保存锁在公开 CI 中的长期稳定性。
 - 增加覆盖率报告、格式基线、静态类型与复杂度质量门。
 - 提供可独立验证的安装后冒烟测试和发布记录。
+
+版本决策、质量门、GitHub Release、PyPI 与事件处理流程见[发布手册](RELEASING.md)。
 
 ## 中期：维护性与兼容性
 
