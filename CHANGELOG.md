@@ -22,6 +22,7 @@
 - 补充公开维护者、变更日志和安全策略项目链接。
 - 首次公开发布前将项目许可证从 Apache-2.0 调整为 MIT，并记录许可决策。
 - 固定 GitHub Actions 到完整提交 SHA，增加并发取消、超时和 Actions 依赖更新配置。
+- 升级 GitHub Actions 至 Node.js 24 运行时版本，并将后续 Actions 依赖更新合并为单一 Pull Request。
 
 ## [0.11.0] - 2026-07-13
 
