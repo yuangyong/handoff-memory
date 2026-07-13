@@ -32,7 +32,7 @@ hmem integrate codex . --with-rules
 
 此时无论 `AGENTS.md` 是否已存在都会处理：不存在则创建仅含简短路由的文件；已存在则保留原内容，只追加或更新一个受管区块。路由仅要求在用户保存、恢复或继续上次任务时使用 `session-handoff` Skill。
 
-`.agents/skills` 是 Codex 官方约定的仓库级 Skill 目录。新会话仍建议显式说“恢复上次任务”，避免把所有历史无条件注入上下文。参见 [Codex Customization：Skills](https://developers.openai.com/codex/concepts/customization#skills)。
+`.agents/skills` 是 Codex 官方约定的仓库级 Skill 目录。新会话仍建议显式说“恢复上次任务”，避免把所有历史无条件注入上下文。参见 [Codex Customization：Skills](https://learn.chatgpt.com/docs/customization/overview#skills)。
 
 ## Claude Code
 
@@ -82,7 +82,7 @@ hmem integrate copilot .
 hmem integrate windsurf .
 ```
 
-默认根据 [Windsurf Skills](https://docs.windsurf.com/windsurf/cascade/skills) 创建 `.windsurf/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 `.windsurf/rules/handoff-memory.md`。规则使用 `model_decision` 触发方式。
+默认根据 [Windsurf Skills](https://docs.devin.ai/desktop/cascade/skills) 创建 `.windsurf/skills/session-handoff/SKILL.md`；指定 `--with-rules` 时再创建 `.windsurf/rules/handoff-memory.md`。规则使用 `model_decision` 触发方式。
 
 ## Cline
 
