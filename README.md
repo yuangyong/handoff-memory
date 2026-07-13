@@ -254,7 +254,7 @@ Handoff Memory 由 `yuangyong` 单独维护，当前不招募共同维护者。�
 - 贡献政策：[贡献指南](CONTRIBUTING.md)
 - 公开协作行为规范：[行为准则](CODE_OF_CONDUCT.md)
 - 安全漏洞：[安全策略](SECURITY.md)，请勿在公开 Issue 中粘贴密钥、真实交接内容或可利用细节
-- 公开仓库与发布前检查：[公开发布清单](docs/PUBLIC_RELEASE.md)
+- 版本、GitHub Release、PyPI 与回滚流程：[发布手册](docs/RELEASING.md)
 - 后续优先级与非目标：[路线图](docs/ROADMAP.md)
 
 当前提交作者邮箱是维护者专门用于开源身份的公开邮箱，无需重写 Git 历史。普通支持优先使用公开 Issue；安全问题遵循 `SECURITY.md` 的私密渠道。
