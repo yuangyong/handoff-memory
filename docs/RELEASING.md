@@ -2,6 +2,8 @@
 
 本文定义 Handoff Memory 的长期 PyPI 发布流程，覆盖版本决策、发布 Pull Request、Trusted Publishing、发布后验证、Yank 和事件处理。PyPI 是唯一正式分发渠道；仓库源码公开不等同于已经发布发行包。
 
+当前发布基线已经由 `0.11.1` 完成验证：GitHub Environment、Trusted Publisher、Actions allow-list、标签工作流和安装后冒烟测试均已打通。证据见 [`0.11.1` 发布记录](releases/0.11.1.md)。后续常规发布应复用并核验这套基线，不重复创建 Pending Publisher。
+
 ## 发布职责与稳定约束
 
 - 项目由 `yuangyong` 单独维护，版本范围、发布时间和发布批准均由维护者决定。
@@ -114,6 +116,8 @@ python -m twine check dist/*
 
 ## 4. 首次配置 PyPI 可信发布
 
+本节只用于首次创建 PyPI 项目。`handoff-memory` 已在 `0.11.1` 发布时完成配置；常规发布只需在推送标签前确认现有 Trusted Publisher、GitHub Environment 和 Actions allow-list 没有漂移。
+
 在 GitHub 仓库创建 Environment：
 
 ```text
@@ -190,7 +194,7 @@ python -m venv $smoke
 - [ ] `uv tool install handoff-memory` 和 `pipx install handoff-memory` 至少各完成一次全新环境验证。
 - [ ] 在外部临时目录完成 `init`、`check --strict`、`save`、`resume`、`history` 和 `show latest` 冒烟流程。
 
-将版本号、提交 SHA、PR、CI、标签、PyPI URL、文件哈希、验证结果和任何例外写入发布记录。
+将版本号、提交 SHA、PR、CI、标签、PyPI URL、文件哈希、验证结果和任何例外写入 `docs/releases/X.Y.Z.md`。仓库不使用 GitHub Release，因此该文件是每个正式版本的长期发布记录。
 
 ## 7. 失败、撤回与安全事件
 
@@ -216,7 +220,7 @@ python -m venv $smoke
 
 ## 发布记录模板
 
-每次正式发布复制以下字段到发布 Issue 或其他可审计记录中：
+每次正式发布复制以下字段到 `docs/releases/X.Y.Z.md`；如果发布过程另有 Issue，可从记录中链接该 Issue：
 
 ```text
 版本：
