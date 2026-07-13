@@ -16,7 +16,7 @@
 
 ## 提问前自查
 
-1. 确认正在使用受支持的 Python 和最新 Handoff Memory 版本。
+1. 确认正在使用受支持的 Python 和最新 Handoff Memory 版本；`uv` 用户可运行 `uv tool upgrade handoff-memory` 后再用 `hmem --version` 核对。
 2. 运行 `hmem --version` 和对应命令的 `--help`。
 3. 对已初始化项目运行 `hmem check .`；需要自动化输出时增加 `--format json`。
 4. 阅读 [README](README.md)、[中文使用指南](docs/USAGE.zh-CN.md)和[跨工具接入说明](docs/INTEGRATIONS.md)。

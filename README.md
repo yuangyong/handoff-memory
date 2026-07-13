@@ -44,7 +44,9 @@ hmem resume .
 
 ### 安装
 
-推荐使用 `uv` 或 `pipx` 从 PyPI 安装到独立工具环境，避免污染目标项目：
+推荐使用 `uv` 或 `pipx` 从 PyPI 安装到独立工具环境，避免污染目标项目。尚未安装工具管理器时，先参考 [`uv` 安装文档](https://docs.astral.sh/uv/getting-started/installation/)或 [`pipx` 安装文档](https://pipx.pypa.io/stable/installation/)完成准备。
+
+以下命令用于首次安装；如果已经安装旧版本，请使用下方的升级命令。重复执行 `uv tool install` 默认不会升级现有工具：
 
 ```powershell
 uv tool install handoff-memory
@@ -70,6 +72,8 @@ uv tool upgrade handoff-memory
 # 或
 pipx upgrade handoff-memory
 ```
+
+升级后运行 `hmem --version` 确认版本。使用 `uv` 时，也可以通过 `uv tool list` 查看工具环境中实际安装的版本。
 
 升级后已初始化的项目不需要重新 `init`。刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。规则只更新受管正文并保留区块外内容；Skill 会同步升级触发用 YAML frontmatter 和受管正文，同时保留区块外的用户正文。
 

@@ -13,6 +13,7 @@ CLI 不需要知道你使用哪家模型，也不需要访问客户端私有会�
 ## 2. 环境要求
 
 - Python 3.10 或更高版本。
+- 使用正式发行包时，需要先安装 [`uv`](https://docs.astral.sh/uv/getting-started/installation/) 或 [`pipx`](https://pipx.pypa.io/stable/installation/)；二者任选其一。
 - Git 与 SVN 均为可选。项目使用哪种版本控制，就安装对应 CLI；没有时仍能保存和恢复，只是无法提供版本库核验。
 - Windows 推荐 PowerShell 7；macOS/Linux 可直接使用常规终端。
 
@@ -26,7 +27,7 @@ svn --version
 
 ## 3. 安装
 
-从 PyPI 安装到独立工具环境：
+从 PyPI 安装到独立工具环境。以下命令用于首次安装；已经安装旧版本时，请使用下方的升级命令，重复执行 `uv tool install` 默认不会升级现有工具：
 
 ```powershell
 uv tool install handoff-memory
@@ -35,6 +36,8 @@ pipx install handoff-memory
 ```
 
 PyPI 是唯一正式分发渠道。项目不提供独立可执行文件、系统包管理器清单或远程安装脚本。
+
+`uv` 默认将包安装到独立工具环境，并把 `hmem` 入口放入工具命令目录。可使用 `uv tool dir`、`uv tool dir --bin` 和 `uv tool list` 分别查看工具环境、命令入口和实际安装版本；当前工作目录不会改变程序的安装位置。
 
 源码安装仅用于开发仓库：
 
@@ -56,6 +59,8 @@ uv tool upgrade handoff-memory
 # 或
 pipx upgrade handoff-memory
 ```
+
+升级后运行 `hmem --version` 确认版本。
 
 开发模式安装（`pip install -e .`）的代码改动会自动生效，一般不需要重新执行。但如果更新涉及 `pyproject.toml` 中的入口点或元数据变更，应重新运行 `pip install -e .`。
 
@@ -292,6 +297,19 @@ svn commit -m "chore: 忽略本地 AI 交接目录"
 也可以只纳管 `ACTIVE.md` 与 `config.json`，忽略 `sessions/`。选择取决于交接内容是否属于团队知识。
 
 ## 10. 故障处理
+
+### 升级后版本没有变化
+
+`uv tool install` 用于首次安装，工具已经存在时默认不会自动升级。先确认 `uv` 工具环境和 PowerShell 实际命中的命令，再执行升级：
+
+```powershell
+uv tool list
+Get-Command hmem -All
+uv tool upgrade handoff-memory
+hmem --version
+```
+
+如果 `Get-Command hmem -All` 返回多个路径，请优先确认当前命中的入口是否来自 `uv tool dir --bin`。仍然无法取得 PyPI 最新版本时，可执行 `uv tool upgrade --no-cache handoff-memory` 排除索引缓存影响。
 
 ### 提示“项目尚未初始化”
 

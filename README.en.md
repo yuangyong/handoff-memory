@@ -25,10 +25,14 @@ It does not require a model, cloud service, vector database, telemetry, or a run
 
 ## Install
 
+Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) or [`pipx`](https://pipx.pypa.io/stable/installation/) first, then use one of the following commands for a first-time installation:
+
 ```powershell
 uv tool install handoff-memory
 # or: pipx install handoff-memory
 ```
+
+If Handoff Memory is already installed, rerunning `uv tool install` does not upgrade the existing tool by default. Upgrade with `uv tool upgrade handoff-memory` or `pipx upgrade handoff-memory`, then verify with `hmem --version`. `uv tool list` shows the version installed in the `uv` tool environment.
 
 Handoff Memory does not publish standalone executables, system package-manager manifests, or remote installer scripts. PyPI is the only official distribution channel.
 
@@ -38,8 +42,6 @@ Verify the single supported command:
 hmem --version
 hmem help
 ```
-
-Upgrade with `uv tool upgrade handoff-memory` or `pipx upgrade handoff-memory`.
 
 ## Quick start
 
