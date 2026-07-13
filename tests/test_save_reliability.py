@@ -43,6 +43,37 @@ class SaveReliabilityTests(unittest.TestCase):
             first_thread.join(timeout=2)
             second_thread.join(timeout=2)
 
+    @unittest.skipUnless(os.name == "nt", "仅验证 Windows 空文件字节锁")
+    def test_contended_empty_lock_file_waits_without_initialization_write(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            lock_path = core._save_lock_path(project)
+            lock_path.touch()
+            holder = lock_path.open("a+b")
+            self.assertTrue(core._try_lock_stream(holder))
+            entered = threading.Event()
+            errors: list[Exception] = []
+
+            def contend() -> None:
+                try:
+                    with core._save_lock(project):
+                        entered.set()
+                except Exception as exc:  # pragma: no cover - 失败时保留原异常
+                    errors.append(exc)
+
+            thread = threading.Thread(target=contend)
+            thread.start()
+            self.assertFalse(entered.wait(timeout=0.15))
+            core._unlock_stream(holder)
+            holder.close()
+            thread.join(timeout=2)
+
+            self.assertFalse(thread.is_alive())
+            self.assertEqual(errors, [])
+            self.assertTrue(entered.is_set())
+
     def test_exclusive_snapshot_creation_refuses_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / "snapshot.md"

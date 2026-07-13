@@ -692,9 +692,6 @@ def _save_lock(project: Path):
         raise HandoffError("无法安全打开保存锁") from exc
     stream = os.fdopen(descriptor, "a+b")
     try:
-        if stream.seek(0, os.SEEK_END) == 0:
-            stream.write(b"\0")
-            stream.flush()
         while not _try_lock_stream(stream):
             if time.monotonic() >= deadline:
                 raise HandoffError("另一个保存操作仍在进行，请稍后重试")
