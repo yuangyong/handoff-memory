@@ -11,9 +11,7 @@
 
 ## 私密报告漏洞
 
-请优先使用 GitHub 仓库 **Security → Report a vulnerability** 提交私密报告。仓库公开时，维护者必须同时启用 GitHub Private Vulnerability Reporting；仅存在本文件并不会自动启用该功能。
-
-如果 GitHub 私密报告入口暂不可用，请发送邮件至 `2314042921@qq.com`，主题以 `[Handoff Memory Security]` 开头。该邮箱是维护者专门用于开源身份的公开联系邮箱。
+请发送邮件至 `2314042921@qq.com`，主题以 `[Handoff Memory Security]` 开头。该邮箱是维护者专门用于开源身份的公开联系邮箱。项目当前不启用 GitHub Private Vulnerability Reporting，请不要通过公开 Issue 报告未修复漏洞。
 
 不要在公开 Issue、Discussion、Pull Request 或日志中粘贴：
 
@@ -47,7 +45,7 @@ Handoff Memory 假设以下输入都不可信：
 
 ## 已知边界
 
-内置敏感信息检测是最后一道防误操作措施，不是完整的 Secret Scanner。攻击者可以使用编码、拆分或未知密钥格式绕过模式识别。公开仓库应额外启用 GitHub Secret Scanning，并在发布前使用 Gitleaks、TruffleHog 或同类工具扫描完整 Git 历史。
+内置敏感信息检测是最后一道防误操作措施，不是完整的 Secret Scanner。攻击者可以使用编码、拆分或未知密钥格式绕过模式识别。是否使用 GitHub Secret Scanning、Gitleaks、TruffleHog 或同类工具扫描完整 Git 历史，由维护者按项目策略决定，不属于当前发布门槛。
 
 `--allow-sensitive` 只允许显式保存疑似敏感内容；`resume` 仍会拒绝传播该内容。不要把这个参数写入固定脚本或 AI 默认规则。
 

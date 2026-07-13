@@ -6,7 +6,7 @@ A local-first, cross-tool CLI for handing an ongoing task from one AI session to
 
 > **Status: Alpha (0.11.x)**
 >
-> Source installation is currently the documented installation path. This repository does not yet claim that a PyPI package is available or maintained by this project.
+> Official distributions are published exclusively through PyPI.
 
 Handoff Memory does not try to make a model “remember everything.” It gives the next session a compact, auditable starting point and asks it to verify the handoff against current artifacts, evidence, tests, and Git or SVN state.
 
@@ -23,14 +23,14 @@ It does not require a model, cloud service, vector database, telemetry, or a run
 - Secret-pattern blocking and optional privacy checks as defense in depth.
 - Zero third-party runtime dependencies.
 
-## Install from source
+## Install
 
 ```powershell
-git clone https://github.com/yuangyong/handoff-memory.git
-cd handoff-memory
-pipx install .
-# or: uv tool install .
+uv tool install handoff-memory
+# or: pipx install handoff-memory
 ```
+
+Handoff Memory does not publish standalone executables, system package-manager manifests, or remote installer scripts. PyPI is the only official distribution channel.
 
 Verify the single supported command:
 
@@ -39,7 +39,7 @@ hmem --version
 hmem help
 ```
 
-Do not infer that a same-named PyPI package belongs to this repository until this README and an official GitHub Release explicitly announce PyPI availability.
+Upgrade with `uv tool upgrade handoff-memory` or `pipx upgrade handoff-memory`.
 
 ## Quick start
 

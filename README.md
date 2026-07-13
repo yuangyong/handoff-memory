@@ -6,7 +6,7 @@
 
 > **项目状态：Alpha（0.11.x）**
 >
-> 当前以源码安装为准，尚未在本文中宣称 PyPI 安装可用。公共 CLI 与带版本号的 JSON 输出遵循兼容性扩展原则，但 Alpha 阶段仍可能在明确迁移说明后调整边界。
+> 正式发行包仅通过 PyPI 提供。公共 CLI 与带版本号的 JSON 输出遵循兼容性扩展原则，但 Alpha 阶段仍可能在明确迁移说明后调整边界。
 
 Handoff Memory 解决的不是“让模型记住一切”，而是一个更可验证的问题：**让下一次 AI 会话准确知道一项持续任务进行到哪里，并用当前产物、依据以及可用的仓库状态核验交接内容**。纯闲聊通常不需要交接。
 
@@ -44,18 +44,15 @@ hmem resume .
 
 ### 安装
 
-当前版本以 GitHub 源码安装为准。克隆仓库后，推荐使用 `pipx` 或 `uv` 安装，避免污染目标项目环境：
+推荐使用 `uv` 或 `pipx` 从 PyPI 安装到独立工具环境，避免污染目标项目：
 
 ```powershell
-git clone https://github.com/yuangyong/handoff-memory.git
-cd handoff-memory
-```
-
-```powershell
-pipx install .
+uv tool install handoff-memory
 # 或
-uv tool install .
+pipx install handoff-memory
 ```
+
+Handoff Memory 不提供独立可执行文件、系统包管理器清单或远程安装脚本；PyPI 是唯一正式分发渠道。
 
 安装后先确认命令已经进入 `PATH`：
 
@@ -69,9 +66,9 @@ hmem help
 升级到新版本：
 
 ```powershell
-pipx install . --force
+uv tool upgrade handoff-memory
 # 或
-uv tool install . --force
+pipx upgrade handoff-memory
 ```
 
 升级后已初始化的项目不需要重新 `init`。刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。规则只更新受管正文并保留区块外内容；Skill 会同步升级触发用 YAML frontmatter 和受管正文，同时保留区块外的用户正文。
@@ -82,7 +79,7 @@ uv tool install . --force
 python -m pip install -e .
 ```
 
-正式发布到 PyPI 后，安装命令和可信发布说明会在 README、[变更日志](CHANGELOG.md)及 GitHub Release 中同时更新。在此之前，不要根据包名推断 PyPI 上的同名项目由本仓库维护。
+发行包通过 GitHub Actions 和 PyPI Trusted Publishing 自动上传，不使用长期 PyPI Token。版本标签、包版本和变更日志必须一致，完整流程见[发布手册](docs/RELEASING.md)。
 
 ### 将流程引入一个项目
 
@@ -221,7 +218,7 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 - `--allow-sensitive` 是显式逃生口；团队环境不建议使用。
 - `.ai-memory` 是否提交 Git/SVN 由项目决定。项目事实可以提交，个人信息和私有路径建议忽略或拆分保存。
 
-敏感信息检测不能替代专业 Secret Scanner。公开仓库仍建议启用 GitHub Secret Scanning、Gitleaks 或 TruffleHog。
+敏感信息检测不能替代专业 Secret Scanner。是否使用 GitHub Secret Scanning、Gitleaks、TruffleHog 或其他外部扫描器由维护者按项目策略决定，不属于当前发布门槛。
 
 ## 设计原则
 
@@ -254,7 +251,7 @@ Handoff Memory 由 `yuangyong` 单独维护，当前不招募共同维护者。�
 - 贡献政策：[贡献指南](CONTRIBUTING.md)
 - 公开协作行为规范：[行为准则](CODE_OF_CONDUCT.md)
 - 安全漏洞：[安全策略](SECURITY.md)，请勿在公开 Issue 中粘贴密钥、真实交接内容或可利用细节
-- 版本、GitHub Release、PyPI 与回滚流程：[发布手册](docs/RELEASING.md)
+- 版本、PyPI 可信发布、Yank 与事件处理流程：[发布手册](docs/RELEASING.md)
 - 后续优先级与非目标：[路线图](docs/ROADMAP.md)
 
 当前提交作者邮箱是维护者专门用于开源身份的公开邮箱，无需重写 Git 历史。普通支持优先使用公开 Issue；安全问题遵循 `SECURITY.md` 的私密渠道。

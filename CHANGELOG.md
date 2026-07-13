@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+## [0.11.1] - 2026-07-13
+
 ### 文档
 
 - 完善公开仓库首页、源码安装边界、支持渠道、贡献流程和路线图。
@@ -24,6 +26,9 @@
 - 首次公开发布前将项目许可证从 Apache-2.0 调整为 MIT，并记录许可决策。
 - 固定 GitHub Actions 到完整提交 SHA，增加并发取消、超时和 Actions 依赖更新配置。
 - 升级 GitHub Actions 至 Node.js 24 运行时版本，并将后续 Actions 依赖更新合并为单一 Pull Request。
+- 新增仅由正式版本标签触发的 PyPI Trusted Publishing 工作流，发行包只构建一次并通过 OIDC 上传。
+- 将唯一正式分发渠道收敛为 PyPI，不提供 GitHub Release 附件、独立可执行文件或系统包管理器安装。
+- 将仓库级 Secret Scanning、Push Protection、Private Vulnerability Reporting、Action SHA 强制和 Immutable Releases 记录为已接受的发布例外。
 
 ## [0.11.0] - 2026-07-13
 

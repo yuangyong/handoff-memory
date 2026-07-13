@@ -4,16 +4,16 @@ Handoff Memory 当前处于 Alpha 阶段。路线图表达唯一维护者当前�
 
 ## 近期：可重复发布
 
-- 建立 GitHub Release 与版本标签流程。
+- 建立由正式版本标签触发的 PyPI 单一分发流程。
 - 使用 PyPI Trusted Publishing 和受保护 Environment，避免长期发布 Token。
-- 保证 CI 验证、GitHub Release 和 PyPI 上传使用同一份构建产物。
-- 持续核验受保护默认分支、私密漏洞报告、Secret Scanning、Push Protection 和最小 Actions 权限。
+- 保证发布质量门和 PyPI 上传使用同一份构建产物。
+- 保持发布 Job 最小权限，并让外部 Action 固定到完整提交 SHA。
 - 为 Markdown 外部链接建立定期检查，及时发现厂商文档迁移。
 - 持续验证 Windows 并发保存锁在公开 CI 中的长期稳定性。
 - 增加覆盖率报告、格式基线、静态类型与复杂度质量门。
 - 提供可独立验证的安装后冒烟测试和发布记录。
 
-版本决策、质量门、GitHub Release、PyPI 与事件处理流程见[发布手册](RELEASING.md)。
+版本决策、质量门、PyPI、Yank 与事件处理流程见[发布手册](RELEASING.md)。
 
 ## 中期：维护性与兼容性
 
@@ -31,6 +31,7 @@ Handoff Memory 当前处于 Alpha 阶段。路线图表达唯一维护者当前�
 
 ## 明确不在路线图中的事项
 
+- GitHub Release 发行附件、独立可执行文件、WinGet、Homebrew、Scoop 或远程安装脚本。
 - 默认联网、遥测或上传交接内容。
 - 自动记录每轮聊天或在任务完成、提交代码、会话退出时自动保存。
 - 执行交接中记录的命令。
