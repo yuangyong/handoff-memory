@@ -110,6 +110,12 @@ Handoff Memory is maintained solely by `yuangyong` and is not recruiting co-main
 
 Report normal bugs through GitHub Issues. Report vulnerabilities only through the private channels in `SECURITY.md`; never post credentials or real handoff files in a public issue.
 
+## Star History
+
+If handoff-memory has helped you, please consider leaving a ⭐ Star so more developers can discover it.
+
+Community: [LINUX DO —— Chinese Developer Community](https://linux.do/)
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) and [ADR-012](docs/decisions/ADR-012-mit-license.md).

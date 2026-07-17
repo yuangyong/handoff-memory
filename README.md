@@ -260,6 +260,12 @@ Handoff Memory 由 `yuangyong` 单独维护，当前不招募共同维护者。�
 
 当前提交作者邮箱是维护者专门用于开源身份的公开邮箱，无需重写 Git 历史。普通支持优先使用公开 Issue；安全问题遵循 `SECURITY.md` 的私密渠道。
 
+## Star History
+
+如果 handoff-memory 帮到了你，欢迎留下一个 ⭐ Star，让更多开发者发现它。
+
+社区：[LINUX DO —— 中文开发者社区](https://linux.do/)
+
 ## 开源许可
 
 MIT License。参见 [LICENSE](LICENSE)；采用该许可证的原因与影响见 [ADR-012](docs/decisions/ADR-012-mit-license.md)。
