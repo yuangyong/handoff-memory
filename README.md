@@ -25,17 +25,22 @@ Handoff Memory 解决的不是“让模型记住一切”，而是一个更可�
 
 ## 快速开始
 
-### 30 秒体验
+### 30 秒体验（推荐：全局安装一次，跨项目即用）
 
-安装后，在任意希望启用会话交接的项目中运行：
+安装 CLI 后，只需把 `handoff-save` 与 `handoff-resume` 双 Skill 安装到用户全局目录（以 Claude Code 或 Codex 为例，支持 `--global` / `-g`）：
+
+```powershell
+hmem skills add claude -g
+# 或：hmem skills add codex -g
+# 也支持通过 Vercel Skills CLI 从仓库安装：npx skills add yuangyong/handoff-memory -g
+```
+
+之后在任意项目中完成任务时，直接要求 AI 保存交接（`handoff-save` Skill 会在未初始化时自动运行 `hmem init .` 创建 `.ai-memory/` 并保存快照）；到新会话时要求 AI 恢复交接（`handoff-resume` 只读核验后继续）。
+
+如果你更偏好手动或脚本化执行，也可以在目标项目中显式运行：
 
 ```powershell
 hmem init . --name "你的项目" --integrate codex
-```
-
-完成一次任务后，让 AI 按项目中的 `session-handoff` Skill 更新交接，再显式保存：
-
-```powershell
 hmem save .
 hmem resume .
 ```
@@ -75,7 +80,7 @@ pipx upgrade handoff-memory
 
 升级后运行 `hmem --version` 确认版本。使用 `uv` 时，也可以通过 `uv tool list` 查看工具环境中实际安装的版本。
 
-升级后已初始化的项目不需要重新 `init`。刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。规则只更新受管正文并保留区块外内容；Skill 会同步升级触发用 YAML frontmatter 和受管正文，同时保留区块外的用户正文。
+升级后已初始化的项目不需要重新 `init`。刷新项目级或全局双 Skill 可执行 `hmem skills add <target> [-g]`（或通过 `hmem skills status .` 检查同步状态与旧版 `session-handoff` 残留）；项目同时使用规则时，通过 `hmem integrate <target> . --with-rules` 刷新规则。规则只更新受管正文并保留区块外内容；Skill 会同步升级触发用 YAML frontmatter 和受管正文，同时保留区块外的用户正文。
 
 开发模式：
 
@@ -115,22 +120,22 @@ hmem init . --name "你的项目" --integrate codex --with-rules
 └── sessions/       # 只增不改的历史快照
 ```
 
-每个具名目标默认只生成原生项目级 `session-handoff` Skill，不创建客户端规则。需要常驻提醒时显式增加 `--with-rules`；命令会创建或幂等更新所选客户端的原生规则，Codex 和 OpenCode 则使用根目录 `AGENTS.md`。具名客户端包括：
+每个具名目标默认只生成原生项目级双 Skill（`handoff-save` 与 `handoff-resume`），不创建客户端规则。需要常驻提醒时显式增加 `--with-rules`；`hmem integrate` 会创建或幂等更新所选客户端的原生规则（Codex 和 OpenCode 使用根目录 `AGENTS.md`）以及项目级双 Skill。如果只想跨项目使用、不向仓库写入客户端配置，改用纯 Skill 管理命令 `hmem skills add <target> -g`。具名客户端包括：
 
 ```text
 codex | claude | cursor | gemini | antigravity | copilot | windsurf
 cline | kiro | trae | qoder | opencode
 ```
 
-另有 `generic`、`skill` 和 `all`。菜单中的 `all` 与 `--integrate all` 都表示全部具名客户端；`generic` 和 `skill` 是需要单独指定的辅助目标。完整规则与 Skill 路径可运行 `hmem help integrate` 查看。
+另有 `generic`、`skill` 和 `all`。菜单中的 `all`、`--integrate all` 与 `hmem skills add all` 都表示全部具名客户端；`generic` 仅为项目级通用规则，`skill` 为开放可移植 Skill 目录（项目 `.agents/skills/` 或全局 `~/.agents/skills/`）。完整路径可运行 `hmem help integrate` 与 `hmem help skills` 查看。
 
 ### 保存当前会话
 
 让当前 AI 执行：
 
-> 请按照项目中的跨会话交接规则保存当前会话，核对实际修改和测试结果后更新交接文件。
+> 请使用 `handoff-save` 技能保存当前会话（或：请按照项目中的跨会话交接规则保存当前会话，核对实际修改和测试结果后更新交接文件）。
 
-使用任一具名目标接入后，可以直接说“请使用 session-handoff 技能保存当前会话”。独立的 `--integrate skill` 仍用于只生成 `.agents/skills` 可移植副本。
+如果当前项目尚未初始化 `.ai-memory/`，`handoff-save` 会自动执行 `hmem init .` 创建核心记忆目录并完成首次交接（不会往项目写入客户端规则或 Skill）。独立的 `--integrate skill` 和 `hmem skills add skill [-g]` 仍用于只生成 `.agents/skills` 可移植副本。
 
 只有用户明确提出保存、恢复、继续或核验跨会话任务时才会触发 Skill。普通对话、任务完成、代码提交、里程碑、关键决策、单轮对话结束和上下文变长都不会更新 `ACTIVE.md` 或创建快照。
 
@@ -171,7 +176,9 @@ hmem resume . --format json
 | `hmem check [PATH]` | 检查结构、必需章节和敏感信息 |
 | `hmem history [PATH]` | 只读列举历史快照 |
 | `hmem show SNAPSHOT [PATH]` | 只读查看指定快照或 `latest` |
-| `hmem integrate TARGET [PATH]` | 添加项目级 Skill，并可显式更新客户端规则 |
+| `hmem integrate TARGET [PATH]` | 为项目生成双 Skill，并可配合 `--with-rules` 更新客户端规则 |
+| `hmem skills add TARGET [PATH] [-g]` | 仅安装或更新 `handoff-save` / `handoff-resume` 双 Skill（`-g` 装到全局） |
+| `hmem skills status [PATH]` | 只读检查项目级与全局级双 Skill 状态及旧版 `session-handoff` 残留 |
 
 执行 `hmem init --help` 可查看初始化参数，或用 `hmem init . --select-tools` 交互选择客户端。
 
@@ -231,7 +238,7 @@ SVN 环境需要安装 Subversion CLI，并确保 `svn --version` 可执行。�
 - 首版不提供向量检索；历史量真正变大后再增加可选索引层。
 - 公共 CLI 采用向后兼容扩展，稳定 JSON 输出包含 `schema_version`。
 
-设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md)、[ADR-004](docs/decisions/ADR-004-native-project-skills.md)、[ADR-005](docs/decisions/ADR-005-explicit-rule-generation.md)、[ADR-006](docs/decisions/ADR-006-active-integrity.md)、[ADR-007](docs/decisions/ADR-007-task-oriented-template.md)、[ADR-008](docs/decisions/ADR-008-hmem-command.md)、[ADR-009](docs/decisions/ADR-009-reliable-save-and-drift.md)、[ADR-010](docs/decisions/ADR-010-machine-readable-operations-and-history.md) 与 [ADR-011](docs/decisions/ADR-011-single-hmem-entry.md)。
+设计依据见 [ADR-001](docs/decisions/ADR-001-local-markdown.md)、[ADR-002](docs/decisions/ADR-002-unified-vcs-state.md)、[ADR-003](docs/decisions/ADR-003-explicit-interactive-tool-selection.md)、[ADR-004](docs/decisions/ADR-004-native-project-skills.md)、[ADR-005](docs/decisions/ADR-005-explicit-rule-generation.md)、[ADR-006](docs/decisions/ADR-006-active-integrity.md)、[ADR-007](docs/decisions/ADR-007-task-oriented-template.md)、[ADR-008](docs/decisions/ADR-008-hmem-command.md)、[ADR-009](docs/decisions/ADR-009-reliable-save-and-drift.md)、[ADR-010](docs/decisions/ADR-010-machine-readable-operations-and-history.md)、[ADR-011](docs/decisions/ADR-011-single-hmem-entry.md) 与 [ADR-013](docs/decisions/ADR-013-dual-skills-and-global-install.md)。
 
 ## 开发
 

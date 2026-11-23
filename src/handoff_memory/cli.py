@@ -23,7 +23,16 @@ from .core import (
     render_snapshot,
     show_snapshot,
 )
-from .integrations import AI_TOOL_TARGETS, TARGETS, integrate
+from .integrations import (
+    AI_TOOL_TARGETS,
+    SKILL_TARGETS,
+    SkillsStatusReport,
+    TARGETS,
+    find_legacy_skills,
+    inspect_skills_status,
+    install_skills,
+    integrate,
+)
 from .security import find_personal_information, find_secrets
 
 
@@ -42,7 +51,7 @@ AI_TOOL_LABELS = {
     "opencode": "OpenCode",
 }
 
-_COMMANDS = ("init", "save", "resume", "check", "history", "show", "integrate")
+_COMMANDS = ("init", "save", "resume", "check", "history", "show", "integrate", "skills")
 _FORMATTER = argparse.RawDescriptionHelpFormatter
 _CANONICAL_PROGRAM = "hmem"
 
@@ -54,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="本地优先、跨 AI 工具的会话交接记忆 CLI",
         formatter_class=_FORMATTER,
         epilog=f"""常用示例：
+  {program_name} skills add claude -g
   {program_name} init . --select-tools
   {program_name} save .
   {program_name} resume .
@@ -180,22 +190,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     adapter = subparsers.add_parser(
         "integrate",
-        help="生成项目级 Skill，并可显式生成客户端规则",
-        description="默认只生成原生项目级 Skill；指定 --with-rules 后生成幂等客户端规则。",
+        help="面向项目生成双 Skill，并可显式生成客户端规则",
+        description="默认生成原生项目级双 Skill（handoff-save / handoff-resume）；指定 --with-rules 后生成幂等客户端规则。若仅安装纯 Skill（尤其是全局安装），可使用 `hmem skills add`。",
         formatter_class=_FORMATTER,
-        epilog=f"""主要目标与项目级 Skill：
-  codex        OpenAI Codex      .agents/skills/session-handoff/SKILL.md
-  opencode     OpenCode          .opencode/skills/session-handoff/SKILL.md
-  claude       Claude Code       .claude/skills/session-handoff/SKILL.md
-  cursor       Cursor            .cursor/skills/session-handoff/SKILL.md
-  gemini       Gemini CLI        .gemini/skills/session-handoff/SKILL.md
-  antigravity  Antigravity IDE   .agents/skills/session-handoff/SKILL.md
-  copilot      GitHub Copilot    .github/skills/session-handoff/SKILL.md
-  windsurf     Windsurf          .windsurf/skills/session-handoff/SKILL.md
-  cline        Cline             .cline/skills/session-handoff/SKILL.md
-  kiro         Kiro              .kiro/skills/session-handoff/SKILL.md
-  trae         TRAE              .trae/skills/session-handoff/SKILL.md
-  qoder        Qoder             .qoder/skills/session-handoff/SKILL.md
+        epilog=f"""主要目标与项目级 Skill 目录（各含 handoff-save / handoff-resume）：
+  codex        OpenAI Codex      .agents/skills/
+  opencode     OpenCode          .opencode/skills/
+  claude       Claude Code       .claude/skills/
+  cursor       Cursor            .cursor/skills/
+  gemini       Gemini CLI        .gemini/skills/
+  antigravity  Antigravity IDE   .agents/skills/
+  copilot      GitHub Copilot    .github/skills/
+  windsurf     Windsurf          .windsurf/skills/
+  cline        Cline             .cline/skills/
+  kiro         Kiro              .kiro/skills/
+  trae         TRAE              .trae/skills/
+  qoder        Qoder             .qoder/skills/
 
 使用 --with-rules 时的规则输出：
   claude CLAUDE.md；cursor .cursor/rules/handoff-memory.mdc；gemini GEMINI.md
@@ -207,7 +217,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 规则默认不生成；generic 是只生成通用规则的独立辅助目标。
 
-其他目标：generic 生成通用规则，skill 生成可移植 Skill，all 生成全部具名客户端 Skill。
+其他目标：generic 生成通用规则，skill 生成可移植双 Skill，all 生成全部具名客户端双 Skill。
 
 示例：
   {program_name} integrate copilot .
@@ -219,8 +229,57 @@ def build_parser() -> argparse.ArgumentParser:
     adapter.add_argument(
         "--with-rules",
         action="store_true",
-        help="显式生成所选客户端规则；默认只生成项目级 Skill",
+        help="显式生成所选客户端规则；默认只生成项目级双 Skill",
     )
+
+    skills = subparsers.add_parser(
+        "skills",
+        help="仅管理双 Skill（支持全局与项目级安装及状态检查）",
+        description="只负责安装、更新或检查 handoff-save 与 handoff-resume 双 Skill，不创建客户端规则或 .ai-memory。",
+        formatter_class=_FORMATTER,
+        epilog=f"""全局目录（使用 -g / --global）：
+  codex ~/.agents/skills/；claude ~/.claude/skills/；cursor ~/.cursor/skills/
+  gemini ~/.gemini/skills/；antigravity ~/.gemini/config/skills/
+  copilot ~/.copilot/skills/；windsurf ~/.codeium/windsurf/skills/
+  cline ~/.cline/skills/；kiro ~/.kiro/skills/；trae ~/.trae/skills/
+  qoder ~/.qoder/skills/；opencode ~/.config/opencode/skills/
+  skill ~/.agents/skills/
+
+示例：
+  {program_name} skills add claude -g
+  {program_name} skills add all --global
+  {program_name} skills add codex .
+  {program_name} skills status .""",
+    )
+    skills_subparsers = skills.add_subparsers(dest="skills_action", required=True)
+    skills_add = skills_subparsers.add_parser(
+        "add",
+        help="安装或更新 handoff-save 与 handoff-resume 双 Skill",
+        description="默认写入项目级目录；传入 -g/--global 写入用户全局 Skill 目录。",
+        formatter_class=_FORMATTER,
+    )
+    skills_add.add_argument("target", choices=SKILL_TARGETS, help="客户端短名称、skill 或 all")
+    skills_add.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="项目目录（默认当前目录）；不可与 -g/--global 同时使用",
+    )
+    skills_add.add_argument(
+        "-g",
+        "--global",
+        action="store_true",
+        dest="global_install",
+        help="安装到当前用户全局 Skill 目录",
+    )
+    skills_status = skills_subparsers.add_parser(
+        "status",
+        help="只读检查项目级与全局级 Skill 状态及旧版残留",
+        description="只读扫描项目级与当前用户全局 Skill 目录，报告双 Skill 同步状态与旧版 session-handoff 残留。",
+        formatter_class=_FORMATTER,
+    )
+    skills_status.add_argument("path", nargs="?", default=".", help="项目目录，默认为当前目录")
+    skills_status.add_argument("--format", choices=("text", "json"), default="text")
 
     help_command = subparsers.add_parser(
         "help",
@@ -238,6 +297,9 @@ def build_parser() -> argparse.ArgumentParser:
         history_parser,
         show_parser,
         adapter,
+        skills,
+        skills_add,
+        skills_status,
         help_command,
     ):
         _localize_help(command_parser)
@@ -269,6 +331,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"已{'创建' if init_result.created else '检查'}记忆目录：{Path(args.path).resolve() / '.ai-memory'}")
             if selected_targets:
                 changed = []
+                legacy: list[Path] = []
                 for target in selected_targets:
                     changed.extend(
                         integrate(
@@ -277,7 +340,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                             with_rules=args.with_rules,
                         )
                     )
+                    for item in find_legacy_skills(args.path, target):
+                        if item not in legacy:
+                            legacy.append(item)
                 print(f"已更新 {len(changed)} 个 AI 接入文件")
+                _warn_legacy_skills(legacy)
             elif args.select_tools:
                 print("已跳过 AI 工具接入")
             return 0
@@ -432,7 +499,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                 with_rules=args.with_rules,
             )
             print(f"已更新 {len(changed)} 个 AI 接入文件")
+            _warn_legacy_skills(find_legacy_skills(args.path, args.target))
             return 0
+        if args.command == "skills":
+            if args.skills_action == "add":
+                if args.global_install and args.path is not None:
+                    raise HandoffError("-g/--global 安装到用户全局目录，不能同时指定项目路径")
+                result = install_skills(
+                    args.target,
+                    path=args.path or ".",
+                    global_install=args.global_install,
+                )
+                scope_label = "用户全局" if args.global_install else "项目级"
+                print(f"已更新 {len(result.changed)} 个{scope_label} Skill 文件")
+                _warn_legacy_skills(result.legacy_skills)
+                return 0
+            if args.skills_action == "status":
+                skills_report = inspect_skills_status(args.path)
+                if args.format == "json":
+                    _print_json(_skills_status_payload(skills_report))
+                else:
+                    print(_render_skills_status(skills_report), end="")
+                return 0
         parser.error("缺少命令")
         return 2
     except (HandoffError, ValueError) as exc:
@@ -465,6 +553,70 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(f"内部错误：{type(exc).__name__}：{exc}", file=sys.stderr)
         return 1
+
+
+def _warn_legacy_skills(legacy_paths: Sequence[Path]) -> None:
+    """提示用户手动清理旧版 session-handoff 残留，避免静默删除自定义内容。"""
+    if not legacy_paths:
+        return
+    print("提示：检测到旧版 session-handoff Skill，确认无自定义内容后建议手动删除以避免触发冲突：")
+    for item in legacy_paths:
+        print(f"  - {item}")
+
+
+def _skills_status_payload(report: SkillsStatusReport) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "ok": True,
+        "project": str(report.project),
+        "home": str(report.home),
+        "installed": [
+            {
+                "scope": entry.scope,
+                "target": entry.target,
+                "root": str(entry.root),
+                "skills": dict(entry.skills),
+                "legacy_path": str(entry.legacy_path) if entry.legacy_path else None,
+            }
+            for entry in report.entries
+        ],
+        "legacy_skills": [str(item) for item in report.legacy_skills],
+    }
+
+
+def _render_skills_status(report: SkillsStatusReport) -> str:
+    lines = [
+        f"项目目录：{report.project}",
+        f"用户主目录：{report.home}",
+    ]
+    if not report.entries:
+        lines.append("未在项目级或用户全局目录发现已安装的 Handoff Memory Skill。")
+        return "\n".join(lines) + "\n"
+
+    status_labels = {
+        "synced": "已同步",
+        "outdated": "待更新",
+        "missing": "缺失",
+        "malformed": "格式异常",
+    }
+    for scope, title in (("global", "用户全局 Skill"), ("project", "项目级 Skill")):
+        scoped = [entry for entry in report.entries if entry.scope == scope]
+        if not scoped:
+            continue
+        lines.append(f"\n{title}：")
+        for entry in scoped:
+            summary = "，".join(
+                f"{name}: {status_labels.get(state, state)}"
+                for name, state in entry.skills.items()
+            )
+            legacy_note = f"；发现旧版残留 {entry.legacy_path}" if entry.legacy_path else ""
+            lines.append(f"  - {entry.target} ({entry.root}): {summary}{legacy_note}")
+
+    if report.legacy_skills:
+        lines.append("\n提示：确认无自定义内容后，建议手动删除以下旧版 session-handoff 文件以避免触发冲突：")
+        for item in report.legacy_skills:
+            lines.append(f"  - {item}")
+    return "\n".join(lines) + "\n"
 
 
 def _json_requested(args: argparse.Namespace | None) -> bool:

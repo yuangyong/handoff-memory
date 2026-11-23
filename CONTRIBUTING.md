@@ -28,7 +28,7 @@ $env:PYTHONPATH = "src"
 ```powershell
 python -m unittest discover -s tests -v
 python -m compileall -q src tests
-python scripts/sync_session_handoff_skill.py --check
+python scripts/sync_skills.py --check
 python -m pip check
 ```
 

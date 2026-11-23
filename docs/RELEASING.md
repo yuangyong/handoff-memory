@@ -85,7 +85,7 @@ chore: 准备 X.Y.Z 版本发布
 $env:PYTHONPATH = "src"
 python -m unittest discover -s tests -v
 python -m compileall -q src tests
-python scripts/sync_session_handoff_skill.py --check
+python scripts/sync_skills.py --check
 python -m pip check
 python -m ruff check .
 python -m mypy src

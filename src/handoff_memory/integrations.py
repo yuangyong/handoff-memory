@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from .core import atomic_write, resolve_project
@@ -10,7 +11,7 @@ from .templates import (
     CURSOR_RULE,
     GENERIC_RULE,
     KIRO_RULE,
-    SKILL_TEMPLATE,
+    SKILL_TEMPLATES,
     WINDSURF_RULE,
 )
 
@@ -29,24 +30,87 @@ AI_TOOL_TARGETS = (
     "qoder",
     "opencode",
 )
-PROJECT_SKILL_PATHS = {
-    "codex": ".agents/skills/session-handoff/SKILL.md",
-    "claude": ".claude/skills/session-handoff/SKILL.md",
-    "cursor": ".cursor/skills/session-handoff/SKILL.md",
-    "gemini": ".gemini/skills/session-handoff/SKILL.md",
-    "antigravity": ".agents/skills/session-handoff/SKILL.md",
-    "copilot": ".github/skills/session-handoff/SKILL.md",
-    "windsurf": ".windsurf/skills/session-handoff/SKILL.md",
-    "cline": ".cline/skills/session-handoff/SKILL.md",
-    "kiro": ".kiro/skills/session-handoff/SKILL.md",
-    "trae": ".trae/skills/session-handoff/SKILL.md",
-    "qoder": ".qoder/skills/session-handoff/SKILL.md",
-    "opencode": ".opencode/skills/session-handoff/SKILL.md",
+PROJECT_SKILL_ROOTS: dict[str, str] = {
+    "codex": ".agents/skills",
+    "claude": ".claude/skills",
+    "cursor": ".cursor/skills",
+    "gemini": ".gemini/skills",
+    "antigravity": ".agents/skills",
+    "copilot": ".github/skills",
+    "windsurf": ".windsurf/skills",
+    "cline": ".cline/skills",
+    "kiro": ".kiro/skills",
+    "trae": ".trae/skills",
+    "qoder": ".qoder/skills",
+    "opencode": ".opencode/skills",
 }
-TARGETS = ("generic", *AI_TOOL_TARGETS, "skill", "all")
+GLOBAL_SKILL_ROOTS: dict[str, str] = {
+    "codex": ".agents/skills",
+    "claude": ".claude/skills",
+    "cursor": ".cursor/skills",
+    "gemini": ".gemini/skills",
+    "antigravity": ".gemini/config/skills",
+    "copilot": ".copilot/skills",
+    "windsurf": ".codeium/windsurf/skills",
+    "cline": ".cline/skills",
+    "kiro": ".kiro/skills",
+    "trae": ".trae/skills",
+    "qoder": ".qoder/skills",
+    "opencode": ".config/opencode/skills",
+    "skill": ".agents/skills",
+}
+_PORTABLE_SKILL_ROOT = ".agents/skills"
+_LEGACY_SKILL_NAME = "session-handoff"
+SKILL_TARGETS = (*AI_TOOL_TARGETS, "skill", "all")
+TARGETS = ("generic", *SKILL_TARGETS)
 _START = "<!-- handoff-memory:start -->"
 _END = "<!-- handoff-memory:end -->"
 _MANAGED_SKILL_FIELDS = ("name", "description")
+
+_PROJECT_RULE_ADAPTERS: dict[str, tuple[str, str]] = {
+    "codex": ("AGENTS.md", AGENTS_ROUTING_RULE + "\n"),
+    "claude": ("CLAUDE.md", GENERIC_RULE + "\n"),
+    "gemini": ("GEMINI.md", GENERIC_RULE + "\n"),
+    "cursor": (".cursor/rules/handoff-memory.mdc", CURSOR_RULE),
+    "copilot": (".github/copilot-instructions.md", GENERIC_RULE + "\n"),
+    "windsurf": (".windsurf/rules/handoff-memory.md", WINDSURF_RULE),
+    "cline": (".clinerules/handoff-memory.md", GENERIC_RULE + "\n"),
+    "kiro": (".kiro/steering/handoff-memory.md", KIRO_RULE),
+    "trae": (".trae/rules/project_rules.md", GENERIC_RULE + "\n"),
+    "qoder": (".qoder/rules/handoff-memory.md", GENERIC_RULE + "\n"),
+    "antigravity": (".agents/rules/handoff-memory.md", AGENTS_ROUTING_RULE + "\n"),
+    "opencode": ("AGENTS.md", AGENTS_ROUTING_RULE + "\n"),
+}
+
+
+@dataclass(frozen=True)
+class SkillInstallResult:
+    """双 Skill 安装或升级的结果。"""
+
+    changed: tuple[Path, ...]
+    skill_roots: tuple[Path, ...]
+    legacy_skills: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class SkillScopeStatus:
+    """单个客户端在项目级或全局级的 Skill 状态。"""
+
+    scope: str
+    target: str
+    root: Path
+    skills: dict[str, str]
+    legacy_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class SkillsStatusReport:
+    """项目级与用户全局级 Skill 只读状态汇总。"""
+
+    project: Path
+    home: Path
+    entries: tuple[SkillScopeStatus, ...]
+    legacy_skills: tuple[Path, ...]
 
 
 def integrate(
@@ -55,33 +119,118 @@ def integrate(
     *,
     with_rules: bool = False,
 ) -> list[Path]:
-    """生成指定 AI 工具 Skill，并按显式选项生成规则。"""
+    """生成指定 AI 工具的项目级双 Skill，并按显式选项生成规则。"""
     project = resolve_project(path)
     if target not in TARGETS:
         raise ValueError(f"未知接入目标：{target}")
     if with_rules and target not in {*AI_TOOL_TARGETS, "all"}:
         raise ValueError("--with-rules 仅适用于具名客户端或 all 接入目标")
     targets = AI_TOOL_TARGETS if target == "all" else (target,)
-    changed: list[Path] = []
-    for item in targets:
-        adapters = _adapters(
-            project,
-            item,
-            with_rules=with_rules,
+    adapters = [
+        adapter
+        for item in targets
+        for adapter in _adapters(project, item, with_rules=with_rules)
+    ]
+    return _write_adapters(adapters)
+
+
+def install_skills(
+    target: str,
+    *,
+    path: Path | str = ".",
+    global_install: bool = False,
+    home: Path | None = None,
+) -> SkillInstallResult:
+    """只安装或幂等升级双 Skill（项目级或用户全局级），不触碰规则文件。"""
+    if target not in SKILL_TARGETS:
+        raise ValueError(f"未知 Skill 安装目标：{target}")
+    base = (
+        (home or Path.home()).expanduser().resolve()
+        if global_install
+        else resolve_project(path)
+    )
+    roots = _resolve_skill_roots(base, target, global_install=global_install)
+    adapters = [
+        adapter
+        for root in roots
+        for adapter in _skill_adapters(root)
+    ]
+    changed = tuple(_write_adapters(adapters))
+    legacy = tuple(find_legacy_skills_in_roots(roots))
+    return SkillInstallResult(
+        changed=changed,
+        skill_roots=roots,
+        legacy_skills=legacy,
+    )
+
+
+def find_legacy_skills(path: Path | str, target: str) -> list[Path]:
+    """检查指定接入目标在项目级 Skill 目录下是否存在旧版 session-handoff 残留。"""
+    if target == "generic":
+        return []
+    project = resolve_project(path)
+    roots = _resolve_skill_roots(project, target, global_install=False)
+    return find_legacy_skills_in_roots(roots)
+
+
+def find_legacy_skills_in_roots(roots: tuple[Path, ...] | list[Path]) -> list[Path]:
+    """从给定 Skill 根目录列表中收集存在的旧版 session-handoff/SKILL.md。"""
+    found: list[Path] = []
+    for root in roots:
+        legacy = root / _LEGACY_SKILL_NAME / "SKILL.md"
+        if legacy.exists() and legacy not in found:
+            found.append(legacy)
+    return found
+
+
+def inspect_skills_status(
+    path: Path | str = ".",
+    *,
+    home: Path | None = None,
+) -> SkillsStatusReport:
+    """只读检查当前项目与用户全局的 Skill 安装状态及旧版残留。"""
+    project = resolve_project(path)
+    resolved_home = (home or Path.home()).expanduser().resolve()
+    entries: list[SkillScopeStatus] = []
+    entries.extend(_inspect_scope("project", project, PROJECT_SKILL_ROOTS))
+    entries.extend(_inspect_scope("global", resolved_home, GLOBAL_SKILL_ROOTS))
+    legacy = tuple(
+        dict.fromkeys(
+            entry.legacy_path for entry in entries if entry.legacy_path is not None
         )
-        for destination, content in adapters:
-            before = destination.read_text(encoding="utf-8") if destination.exists() else ""
-            # Skill 的触发条件位于 frontmatter，升级时必须同步；受管区块外的
-            # 用户正文仍需保留。规则文件则只替换受管区块。
-            after = (
-                _merge_skill(before, content)
-                if content == SKILL_TEMPLATE
-                else _merge_managed_block(before, content)
-            )
-            if before != after:
-                atomic_write(destination, after)
-                changed.append(destination)
-    return changed
+    )
+    return SkillsStatusReport(
+        project=project,
+        home=resolved_home,
+        entries=tuple(entries),
+        legacy_skills=legacy,
+    )
+
+
+def _resolve_skill_roots(
+    base: Path,
+    target: str,
+    *,
+    global_install: bool,
+) -> tuple[Path, ...]:
+    """解析目标客户端对应的唯一 Skill 根目录列表（保留顺序并去重）。"""
+    mapping = GLOBAL_SKILL_ROOTS if global_install else PROJECT_SKILL_ROOTS
+    items = AI_TOOL_TARGETS if target == "all" else (target,)
+    roots: list[Path] = []
+    for item in items:
+        relative = _PORTABLE_SKILL_ROOT if item == "skill" else mapping[item]
+        root = base / relative
+        if root not in roots:
+            roots.append(root)
+    return tuple(roots)
+
+
+def _skill_adapters(skill_root: Path) -> tuple[tuple[Path, str, bool], ...]:
+    """为指定 Skill 根目录生成双 Skill 写入描述符。"""
+    return tuple(
+        (skill_root / name / "SKILL.md", template, True)
+        for name, template in SKILL_TEMPLATES.items()
+    )
 
 
 def _adapters(
@@ -89,117 +238,80 @@ def _adapters(
     target: str,
     *,
     with_rules: bool = False,
-) -> tuple[tuple[Path, str], ...]:
+) -> tuple[tuple[Path, str, bool], ...]:
     if target == "generic":
-        return ((project / "AI-HANDOFF.md", "# AI 会话交接\n\n" + GENERIC_RULE + "\n"),)
-    if target == "codex":
-        adapters = list(_with_project_skill(project, target))
-        if with_rules:
-            adapters.append((project / "AGENTS.md", AGENTS_ROUTING_RULE + "\n"))
-        return tuple(adapters)
-    if target == "claude":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / "CLAUDE.md", GENERIC_RULE + "\n"),
-            with_rules=with_rules,
-        )
-    if target == "gemini":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / "GEMINI.md", GENERIC_RULE + "\n"),
-            with_rules=with_rules,
-        )
-    if target == "cursor":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".cursor/rules/handoff-memory.mdc", CURSOR_RULE),
-            with_rules=with_rules,
-        )
-    if target == "copilot":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".github/copilot-instructions.md", GENERIC_RULE + "\n"),
-            with_rules=with_rules,
-        )
-    if target == "windsurf":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".windsurf/rules/handoff-memory.md", WINDSURF_RULE),
-            with_rules=with_rules,
-        )
-    if target == "cline":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".clinerules/handoff-memory.md", GENERIC_RULE + "\n"),
-            with_rules=with_rules,
-        )
-    if target == "kiro":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".kiro/steering/handoff-memory.md", KIRO_RULE),
-            with_rules=with_rules,
-        )
-    if target == "trae":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".trae/rules/project_rules.md", GENERIC_RULE + "\n"),
-            with_rules=with_rules,
-        )
-    if target == "qoder":
-        return _with_optional_rule(
-            project,
-            target,
-            (project / ".qoder/rules/handoff-memory.md", GENERIC_RULE + "\n"),
-            with_rules=with_rules,
-        )
-    if target == "antigravity":
-        return _with_optional_rule(
-            project,
-            target,
-            (
-                project / ".agents/rules/handoff-memory.md",
-                AGENTS_ROUTING_RULE + "\n",
-            ),
-            with_rules=with_rules,
-        )
-    if target == "opencode":
-        adapters = list(_with_project_skill(project, target))
-        if with_rules:
-            adapters.append((project / "AGENTS.md", AGENTS_ROUTING_RULE + "\n"))
-        return tuple(adapters)
+        return ((project / "AI-HANDOFF.md", "# AI 会话交接\n\n" + GENERIC_RULE + "\n", False),)
     if target == "skill":
-        return ((project / ".agents/skills/session-handoff/SKILL.md", SKILL_TEMPLATE),)
-    raise ValueError(f"未知接入目标：{target}")
+        return _skill_adapters(project / _PORTABLE_SKILL_ROOT)
+    skills = _skill_adapters(project / PROJECT_SKILL_ROOTS[target])
+    if not with_rules:
+        return skills
+    rule_relative, rule_content = _PROJECT_RULE_ADAPTERS[target]
+    rule = (project / rule_relative, rule_content, False)
+    if target in {"codex", "opencode"}:
+        return (*skills, rule)
+    return (rule, *skills)
 
 
-def _with_project_skill(
-    project: Path,
-    target: str,
-    *adapters: tuple[Path, str],
-) -> tuple[tuple[Path, str], ...]:
-    """在客户端规则之后追加其原生项目级 session-handoff Skill。"""
-    skill = (project / PROJECT_SKILL_PATHS[target], SKILL_TEMPLATE)
-    return (*adapters, skill)
+def _write_adapters(
+    adapters: list[tuple[Path, str, bool]],
+) -> list[Path]:
+    """幂等写入适配器文件，返回实际发生内容变化的文件路径列表。"""
+    changed: list[Path] = []
+    for destination, content, is_skill in adapters:
+        before = destination.read_text(encoding="utf-8") if destination.exists() else ""
+        # Skill 同步更新 frontmatter 与受管正文，规则文件仅替换受管区块，
+        # 均保留受管区块外的用户自定义正文。
+        after = (
+            _merge_skill(before, content)
+            if is_skill
+            else _merge_managed_block(before, content)
+        )
+        if before != after:
+            atomic_write(destination, after)
+            changed.append(destination)
+    return changed
 
 
-def _with_optional_rule(
-    project: Path,
-    target: str,
-    rule: tuple[Path, str],
-    *,
-    with_rules: bool,
-) -> tuple[tuple[Path, str], ...]:
-    """默认只生成 Skill；显式开启后在 Skill 前追加客户端规则。"""
-    adapters = (rule,) if with_rules else ()
-    return _with_project_skill(project, target, *adapters)
+def _inspect_scope(
+    scope: str,
+    base: Path,
+    mapping: dict[str, str],
+) -> list[SkillScopeStatus]:
+    """只读检查单个作用域内各目标目录的双 Skill 与旧版残留状态。"""
+    results: list[SkillScopeStatus] = []
+    targets = (*AI_TOOL_TARGETS, "skill")
+    for target in targets:
+        relative = _PORTABLE_SKILL_ROOT if (scope == "project" and target == "skill") else mapping[target]
+        root = base / relative
+        statuses = {
+            name: _skill_file_status(root / name / "SKILL.md", template)
+            for name, template in SKILL_TEMPLATES.items()
+        }
+        legacy = root / _LEGACY_SKILL_NAME / "SKILL.md"
+        legacy_path = legacy if legacy.exists() else None
+        if any(state != "missing" for state in statuses.values()) or legacy_path is not None:
+            results.append(
+                SkillScopeStatus(
+                    scope=scope,
+                    target=target,
+                    root=root,
+                    skills=statuses,
+                    legacy_path=legacy_path,
+                )
+            )
+    return results
+
+
+def _skill_file_status(destination: Path, template: str) -> str:
+    if not destination.is_file():
+        return "missing"
+    current = destination.read_text(encoding="utf-8")
+    try:
+        merged = _merge_skill(current, template)
+    except ValueError:
+        return "malformed"
+    return "synced" if merged == current else "outdated"
 
 
 def _merge_managed_block(existing: str, content: str) -> str:
