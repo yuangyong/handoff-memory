@@ -24,6 +24,8 @@ hmem check [PATH] [--strict] [--privacy] [--format text|json]
 hmem history [PATH] [--format markdown|json]
 hmem show SNAPSHOT [PATH] [--format markdown|json]
 hmem integrate TARGET [PATH] [--with-rules]
+hmem skills add TARGET [PATH] [-g|--global]
+hmem skills status [PATH] [--format text|json]
 ```
 
 `hmem` 是唯一终端命令。帮助、版本、错误提示和示例始终使用 `hmem`；直接调用 Python `main([...])`、通过 `python -m handoff_memory` 启动或重命名启动器时也不得改变该名称。发行包名 `handoff-memory` 与模块名 `handoff_memory` 不属于 CLI 入口。
@@ -32,9 +34,13 @@ hmem integrate TARGET [PATH] [--with-rules]
 
 `help` 与每个命令的 `-h/--help` 都必须可用，并包含中文用途、参数说明和示例。`--select-tools` 显式开启零依赖交互多选；直接回车跳过工具接入，菜单中的 `all` 选择全部具名客户端。它与 `--integrate` 互斥，非交互脚本继续使用 `--integrate TARGET`。`--integrate all` 同样只选择全部具名客户端；`generic` 和 `skill` 必须单独指定。
 
-每个具名目标默认只生成原生项目级 `session-handoff/SKILL.md`。Skill 目录由 `PROJECT_SKILL_PATHS` 统一声明，新增具名目标时必须同时提供路径与测试。显式指定 `--with-rules` 后，具有原生规则目录的客户端生成对应规则，`codex` 和 `opencode` 创建或幂等更新根目录 `AGENTS.md`；所有规则均保留受管区块外内容。`generic` 保留为只生成 `AI-HANDOFF.md` 的通用规则入口，`skill` 保留为只生成 `.agents/skills` 可移植副本的独立入口。
+每个具名目标默认只生成原生项目级双 Skill（`handoff-save/SKILL.md` 与 `handoff-resume/SKILL.md`）。项目级 Skill 目录由 `PROJECT_SKILL_ROOTS` 统一声明，用户级全局 Skill 目录由 `GLOBAL_SKILL_ROOTS` 统一声明，新增具名目标时必须同时提供路径与测试。显式指定 `--with-rules` 后，具有原生规则目录的客户端生成对应规则，`codex` 和 `opencode` 创建或幂等更新根目录 `AGENTS.md`；所有规则均保留受管区块外内容。`generic` 保留为只生成 `AI-HANDOFF.md` 的通用规则入口，`skill` 保留为只生成 `.agents/skills`（或全局 `~/.agents/skills`）可移植副本的独立入口。
 
-Skill 与规则只能在用户明确要求保存、恢复、继续或核验跨会话交接时触发。`resume` 对交接文件只读，并比较当前活动交接与最后保存正文的摘要；普通任务执行、阶段完成、代码提交、里程碑、关键决策、单轮对话结束或上下文变长均不得更新 `ACTIVE.md` 或创建快照。
+`hmem skills` 仅管理 Skill（不创建客户端规则或 `.ai-memory/`）：`hmem skills add` 支持项目级与 `-g/--global` 全局安装，目标不包含 `generic`；`hmem skills status` 保持只读，检查项目与全局 Skill 同步状态及旧版 `session-handoff` 残留。
+
+Skill 与规则只能在用户明确要求保存、恢复、继续或核验跨会话交接时触发。`handoff-save` 在目标项目完全未初始化（且非用户主目录或系统根目录）时显式先运行 `hmem init .` 再更新并保存；`handoff-resume` 与 `resume` 对交接文件保持严格只读，未初始化时绝不自动 `init`，仅在损坏、缺失或用户明确查询时只读调用 `history` / `show`。普通任务执行、阶段完成、代码提交、里程碑、关键决策、单轮对话结束或上下文变长均不得更新 `ACTIVE.md` 或创建快照。
+
+Skill 检测到缺少 `hmem` CLI 时不得自动静默运行远程安装脚本；应先探测本机 `uv`/`pipx`，向用户展示标准 PyPI 安装命令并获得确认后再安装，或停止并给出手动安装指引。
 
 所有命令成功返回 `0`；用户输入或状态无效返回 `2`；意外错误返回 `1`。
 
@@ -95,11 +101,14 @@ def resolve_project(path: Path) -> Path:
 - 保存时由 CLI 在配置和快照元数据中记录规范化交接正文的 SHA-256，不在 `ACTIVE.md` 正文中记录其自身哈希。
 - 恢复时先展示安全提示、保存时间、活动正文一致性和版本库漂移，再展示交接正文。
 - 对已有集成文件执行幂等更新，不覆盖用户内容。
-- 为每个具名 AI 工具生成其原生项目目录下的 `session-handoff` Skill。
+- 为每个具名 AI 工具生成其原生项目级（或显式 `-g/--global` 用户级）`handoff-save` 与 `handoff-resume` 双 Skill。
 - 仅在用户指定 `--select-tools` 时读取交互输入。
-- `history` 和 `show` 不修改 `ACTIVE.md`、配置或快照。
+- `history`、`show` 和 `skills status` 不修改 `ACTIVE.md`、配置、快照或任何 Skill 文件。
 
 ### 需要用户明确选择
+
+- 使用 `-g/--global` 将双 Skill 安装到用户级全局目录。
+- 在缺少 `hmem` CLI 时，由用户明确确认后再执行标准包管理器安装（`uv`/`pipx`）。
 
 - 使用 `--allow-sensitive` 保存疑似敏感内容。
 - 使用 `--allow-large` 保存 64–256KB 的大型交接。
@@ -122,7 +131,7 @@ def resolve_project(path: Path) -> Path:
 - 正常交接保持紧凑：16KB 以上提示，64KB 以上默认拒绝保存但允许显式确认，256KB 以上保存和恢复均拒绝。
 - 新会话调用 `resume` 可获得交接内容、当前正文相对最后保存的变化及 Git/SVN 漂移信息。
 - 普通任务和会话内对话不会触发交接读写；只有用户明确请求保存时才创建快照。
-- 12 个具名客户端均能默认生成原生项目级 Skill，并在显式指定 `--with-rules` 时生成适用规则；重复执行不会重复插入内容。
+- 12 个具名客户端均能默认生成原生项目级双 Skill（`handoff-save` 与 `handoff-resume`），并在显式指定 `--with-rules` 时生成适用规则；也支持通过 `hmem skills add <target> -g` 安装到用户全局 Skill 目录；重复执行不会重复插入内容。
 - Windows、macOS、Linux 上均不需要运行期第三方依赖。
 - Wheel 必须只安装 `hmem` 一个控制台入口。
 - 单元测试以及临时 Git、SVN 仓库端到端测试全部通过。

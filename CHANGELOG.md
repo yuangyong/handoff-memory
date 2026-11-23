@@ -4,11 +4,23 @@
 
 ## [未发布]
 
+### 新增
+
+- 新增 `hmem skills add TARGET [PATH] [-g|--global]` 与只读的 `hmem skills status [PATH]` 命令，支持将 `handoff-save` / `handoff-resume` 双 Skill 安装到 12 个主流 AI 客户端的用户级全局目录或项目级目录，并检测旧版 `session-handoff` 残留。
+- 将顶层 `skills/` 目录拆分为 `skills/handoff-save/` 与 `skills/handoff-resume/`，兼容 `npx skills add yuangyong/handoff-memory -g` 全局安装。
+
+### 变更
+
+- 将原单一 `session-handoff` Skill 按读写职责拆分为 `handoff-save`（写入端，支持未初始化项目自动执行 `hmem init .` 及半损坏目录保护）与 `handoff-resume`（严格只读端，内置 `history`/`show` 历史排查分支）。
+- 同步升级双 Skill 同步脚本为 `scripts/sync_skills.py`，并校验双 Skill 共用 `CLI 可用性检查` 章节一致性（缺少 `hmem` 且存在 `uv`/`pipx` 时先征得用户同意再安装，禁止静默执行安装脚本）。
+- 更新 `AGENTS_ROUTING_RULE` 路由提示至双 Skill；保留 `hmem init --integrate` 与 `hmem integrate TARGET [PATH] [--with-rules]` 项目级接入兼容。
+
 ### 文档
 
 - 明确区分 PyPI 首次安装与已有工具升级，并补充 `uv` 安装位置和版本未更新时的排查步骤。
 - 将已经完成的 PyPI 可信发布能力归档为发布基线，并增加可审计的 `0.11.1` 发布记录。
 - 更新发生重定向的 Codex 与 Windsurf 官方文档链接。
+- 新增 `ADR-013` 并更新 `README`、`docs/SPEC.md`、`docs/INTEGRATIONS.md`、`docs/USAGE.zh-CN.md`，推荐全局双 Skill 安装并明确 `hmem skills` 与 `hmem integrate` 的职责分工。
 
 ## [0.11.1] - 2026-07-13
 

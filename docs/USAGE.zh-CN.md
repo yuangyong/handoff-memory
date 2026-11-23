@@ -67,14 +67,16 @@ pipx upgrade handoff-memory
 ### 升级后对已有项目的影响
 
 - **记忆目录**：不需要重新 `init`，已有的 `.ai-memory/ACTIVE.md` 和历史快照不受影响。
-- **规则与 Skill**：刷新 Skill 可重新执行 `integrate`；项目同时使用规则时必须保留 `--with-rules` 才会刷新规则。规则只替换 `<!-- handoff-memory:start/end -->` 区块；Skill 还会同步升级触发用 YAML frontmatter。受管区块外的用户正文会原样保留。
+- **规则与 Skill**：刷新全局或项目级双 Skill 可执行 `hmem skills add <target> [-g]`，并通过 `hmem skills status .` 检查是否同步及是否存在旧版 `session-handoff` 残留；项目同时使用规则时，通过 `hmem integrate <target> . --with-rules` 刷新规则。规则只替换 `<!-- handoff-memory:start/end -->` 区块；Skill 还会同步升级触发用 YAML frontmatter。受管区块外的用户正文会原样保留。
 - **命令入口**：`hmem` 是唯一终端命令；发行包名 `handoff-memory` 和模块名 `handoff_memory` 保持不变。`save`、`resume`、`check`、`history` 和 `show` 的 JSON 输出包含 `schema_version`，新版本会保持向后兼容。
 
 ```powershell
-# 只刷新 Antigravity Skill
+# 刷新 Antigravity 全局双 Skill
+hmem skills add antigravity -g
+# 查看项目与全局 Skill 状态
+hmem skills status .
+# 同时刷新项目级规则与双 Skill
 cd D:\your-project
-hmem integrate antigravity .
-# 同时刷新规则与 Skill
 hmem integrate antigravity . --with-rules
 ```
 
@@ -84,9 +86,21 @@ hmem integrate antigravity . --with-rules
 hmem help
 hmem help init
 hmem help integrate
+hmem help skills
 ```
 
-## 4. 初始化目标项目
+## 4. 初始化目标项目（或全局 Skill 自动初始化）
+
+个人跨项目使用时，推荐先安装一次全局双 Skill（无需每个项目手动 `init`）：
+
+```powershell
+hmem skills add claude -g
+# 或：npx skills add yuangyong/handoff-memory -g
+```
+
+安装全局 Skill 后，在未初始化的新项目中要求 AI 保存交接时，`handoff-save` 会自动执行 `hmem init .` 创建 `.ai-memory/` 并完成首次归档；要求恢复交接时，`handoff-resume` 会保持只读并明确提示尚未初始化。
+
+如果希望为特定项目手动初始化核心目录或写入团队共享的项目级规则/Skill：
 
 只初始化核心目录：
 
@@ -112,7 +126,7 @@ hmem init D:\project\demo --name "Demo" --integrate codex
 
 在 `--select-tools` 菜单中输入 `all`，或使用 `--integrate all`，都会选择全部 12 个具名客户端，只适合确实同时使用多个 AI 工具的项目。`generic` 和 `skill` 是独立辅助目标，不会被 `all` 隐式执行。
 
-所有具名目标默认只生成对应项目级 `session-handoff` Skill。需要常驻显式请求路由时增加 `--with-rules`：具有原生规则目录的客户端会生成对应规则，Codex 和 OpenCode 会创建或幂等更新根目录 `AGENTS.md`。规则只在用户明确要求保存、恢复、继续或核验交接时路由到 Skill。
+所有具名目标默认只生成对应的项目级 `handoff-save` 与 `handoff-resume` 双 Skill。需要常驻显式请求路由时增加 `--with-rules`：具有原生规则目录的客户端会生成对应规则，Codex 和 OpenCode 会创建或幂等更新根目录 `AGENTS.md`。规则只在用户明确要求保存、恢复、继续或核验交接时分别路由到对应 Skill。
 
 ```powershell
 hmem init D:\project\demo --integrate qoder --with-rules
@@ -277,13 +291,14 @@ hmem show 20260712-115718.md . --format json
 
 ```gitignore
 .ai-memory/
-# 仅在生成了对应接入文件时添加
+# 仅在生成了对应项目级接入文件时添加
 AI-HANDOFF.md
-.agents/skills/session-handoff/
+.agents/skills/handoff-save/
+.agents/skills/handoff-resume/
 .agents/rules/handoff-memory.md
 ```
 
-其他客户端会写入各自目录，例如 `.claude/skills`、`.cursor/rules` 或 `.github/skills`。运行 `hmem help integrate` 查看实际路径，并只忽略当前项目生成的具体文件或 `session-handoff` 目录；不要直接忽略整个 `.github/`、`.cursor/` 等目录，以免隐藏项目已有配置。修改忽略规则后运行 `git status --short`，确认没有遗漏接入文件。
+其他客户端会写入各自目录，例如 `.claude/skills`、`.cursor/rules` 或 `.github/skills`。运行 `hmem help integrate` 与 `hmem help skills` 查看实际路径，并只忽略当前项目生成的具体文件或 `handoff-save` / `handoff-resume` 目录；不要直接忽略整个 `.github/`、`.cursor/` 等目录，以免隐藏项目已有配置。修改忽略规则后运行 `git status --short`，确认没有遗漏接入文件。
 
 SVN 项目可以设置 `svn:ignore`：
 

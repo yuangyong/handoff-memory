@@ -65,7 +65,7 @@ jobs:
         run: |
           python -m compileall -q src tests
           python -m unittest discover -s tests -v
-          python scripts/sync_session_handoff_skill.py --check
+          python scripts/sync_skills.py --check
           python -m pip check
       - name: 构建 Wheel 与源码包
         run: python -m build

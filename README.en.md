@@ -15,7 +15,7 @@ It does not require a model, cloud service, vector database, telemetry, or a run
 ## Key properties
 
 - Local-first UTF-8 Markdown and JSON; no upload or LLM call by default.
-- Project-level Skill and optional rule integration for 12 AI coding clients.
+- Global user-level (`hmem skills add <target> -g`) and project-level Skill integration (`handoff-save` / `handoff-resume`), plus optional client rules (`hmem integrate --with-rules`) for 12 AI coding clients.
 - Git and SVN state capture, worktree fingerprints, and drift reporting.
 - Explicit save semantics: normal work, commits, milestones, and session endings do not save automatically.
 - Read-only recovery: handoff text is untrusted context and recorded commands are never executed.
@@ -45,27 +45,35 @@ hmem help
 
 ## Quick start
 
-Initialize a target project and install the Codex project Skill:
+Recommended for personal cross-project use — install the global `handoff-save` and `handoff-resume` Skills once:
+
+```powershell
+hmem skills add claude -g
+# or: hmem skills add codex -g
+# or via Vercel Skills CLI: npx skills add yuangyong/handoff-memory -g
+```
+
+When saving in an uninitialized repository, `handoff-save` automatically runs `hmem init .` to create `.ai-memory/` before saving. You can also initialize a project explicitly for team sharing (with optional `--with-rules` client rules):
 
 ```powershell
 cd D:\path\to\your-project
 hmem init . --name "My Project" --integrate codex
 ```
 
-After an AI has updated `.ai-memory/ACTIVE.md` using the generated `session-handoff` Skill, save explicitly:
+After an AI has updated `.ai-memory/ACTIVE.md` using `handoff-save`, or directly via CLI:
 
 ```powershell
 hmem save .
 ```
 
-In the next session, recover and verify the handoff:
+In the next session, ask the AI to use `handoff-resume`, or run:
 
 ```powershell
 hmem resume .
 hmem resume . --format json
 ```
 
-Use `--select-tools` for an explicit interactive client selection, or `--integrate TARGET` for automation. Client rules are opt-in through `--with-rules`; named integrations create only their native project Skill by default.
+Use `--select-tools` for an explicit interactive client selection, or `hmem integrate TARGET [PATH] [--with-rules]` for project-scoped Skill and rule integration. Client rules are opt-in through `--with-rules`; `hmem skills` manages only Skills (no rule files).
 
 ## Commands
 
@@ -78,9 +86,11 @@ Use `--select-tools` for an explicit interactive client selection, or `--integra
 | `hmem check [PATH]` | Validate structure, quality, secrets, and optional privacy findings |
 | `hmem history [PATH]` | List immutable snapshots without modifying the project |
 | `hmem show SNAPSHOT [PATH]` | Read a named snapshot or `latest` safely |
-| `hmem integrate TARGET [PATH]` | Add or update a project Skill and optional client rules |
+| `hmem integrate TARGET [PATH]` | Add or update project Skills and optional client rules (`--with-rules`) |
+| `hmem skills add TARGET [PATH] [-g]` | Install or update `handoff-save` & `handoff-resume` Skills (`-g` for user global) |
+| `hmem skills status [PATH]` | Inspect project/global Skill sync status and legacy `session-handoff` files |
 
-Named clients are `codex`, `claude`, `cursor`, `gemini`, `antigravity`, `copilot`, `windsurf`, `cline`, `kiro`, `trae`, `qoder`, and `opencode`. Auxiliary targets are `generic`, `skill`, and `all`.
+Named clients are `codex`, `claude`, `cursor`, `gemini`, `antigravity`, `copilot`, `windsurf`, `cline`, `kiro`, `trae`, `qoder`, and `opencode`. Auxiliary targets are `skill`, `all`, and (for `init`/`integrate` only) `generic`.
 
 ## Safety model
 

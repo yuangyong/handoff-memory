@@ -33,7 +33,7 @@ jobs:
       - name: 运行测试
         run: python -m unittest discover -s tests -v
       - name: 校验 Skill 分发副本
-        run: python scripts/sync_session_handoff_skill.py --check
+        run: python scripts/sync_skills.py --check
       - name: 依赖一致性检查
         run: python -m pip check
 
@@ -73,9 +73,11 @@ jobs:
               "docs/decisions/ADR-010-machine-readable-operations-and-history.md",
               "docs/decisions/ADR-011-single-hmem-entry.md",
               "docs/decisions/ADR-012-mit-license.md",
+              "docs/decisions/ADR-013-dual-skills-and-global-install.md",
               "examples/ACTIVE.example.md",
-              "scripts/sync_session_handoff_skill.py",
-              "skills/session-handoff/SKILL.md",
+              "scripts/sync_skills.py",
+              "skills/handoff-save/SKILL.md",
+              "skills/handoff-resume/SKILL.md",
           }
           missing = {
               suffix
@@ -111,23 +113,34 @@ jobs:
           project="${RUNNER_TEMP}/handoff-smoke"
           hmem init "$project" --name "Wheel Smoke" --integrate codex
           test ! -e "$project/AGENTS.md"
-          test -f "$project/.agents/skills/session-handoff/SKILL.md"
+          test -f "$project/.agents/skills/handoff-save/SKILL.md"
+          test -f "$project/.agents/skills/handoff-resume/SKILL.md"
           hmem integrate codex "$project" --with-rules
           test -f "$project/AGENTS.md"
           interactive_project="${RUNNER_TEMP}/handoff-interactive"
           printf 'all\n' | hmem init "$interactive_project" --select-tools
-          test -f "$interactive_project/.agents/skills/session-handoff/SKILL.md"
+          test -f "$interactive_project/.agents/skills/handoff-save/SKILL.md"
+          test -f "$interactive_project/.agents/skills/handoff-resume/SKILL.md"
           test ! -e "$interactive_project/.agents/rules/handoff-memory.md"
           test ! -e "$interactive_project/.github/copilot-instructions.md"
-          test -f "$interactive_project/.github/skills/session-handoff/SKILL.md"
+          test -f "$interactive_project/.github/skills/handoff-save/SKILL.md"
+          test -f "$interactive_project/.github/skills/handoff-resume/SKILL.md"
           hmem integrate all "$interactive_project" --with-rules
           test -f "$interactive_project/.agents/rules/handoff-memory.md"
           test -f "$interactive_project/.github/copilot-instructions.md"
           test -f "$interactive_project/.trae/rules/project_rules.md"
-          test -f "$interactive_project/.trae/skills/session-handoff/SKILL.md"
+          test -f "$interactive_project/.trae/skills/handoff-save/SKILL.md"
+          test -f "$interactive_project/.trae/skills/handoff-resume/SKILL.md"
           test -f "$interactive_project/.qoder/rules/handoff-memory.md"
-          test -f "$interactive_project/.qoder/skills/session-handoff/SKILL.md"
-          test -f "$interactive_project/.opencode/skills/session-handoff/SKILL.md"
+          test -f "$interactive_project/.qoder/skills/handoff-save/SKILL.md"
+          test -f "$interactive_project/.qoder/skills/handoff-resume/SKILL.md"
+          test -f "$interactive_project/.opencode/skills/handoff-save/SKILL.md"
+          test -f "$interactive_project/.opencode/skills/handoff-resume/SKILL.md"
+          skills_home="${RUNNER_TEMP}/handoff-home"
+          HOME="$skills_home" hmem skills add claude -g
+          test -f "$skills_home/.claude/skills/handoff-save/SKILL.md"
+          test -f "$skills_home/.claude/skills/handoff-resume/SKILL.md"
+          HOME="$skills_home" hmem skills status "$project" --format json
           cp examples/ACTIVE.example.md "$project/.ai-memory/ACTIVE.md"
           hmem check "$project" --strict --format json
           hmem save "$project" --format json

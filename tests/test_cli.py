@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import re
 import subprocess
@@ -92,14 +93,15 @@ class CliTests(unittest.TestCase):
         content = output.getvalue()
         self.assertEqual(code, 0)
         self.assertIn("OpenCode", content)
-        self.assertIn(".opencode/skills/session-handoff/SKILL.md", content)
-        self.assertIn(".cursor/skills/session-handoff/SKILL.md", content)
+        self.assertIn(".opencode/skills/", content)
+        self.assertIn(".cursor/skills/", content)
         self.assertIn(".agents/rules/handoff-memory.md", content)
         self.assertIn("Antigravity IDE", content)
-        self.assertIn(".trae/skills/session-handoff/SKILL.md", content)
+        self.assertIn(".trae/skills/", content)
         self.assertIn("TRAE", content)
         self.assertIn(".trae/rules/project_rules.md", content)
         self.assertIn("规则默认不生成", content)
+        self.assertIn("hmem skills add", content)
         self.assertNotIn("Roo Code", content)
 
     def test_package_version_matches_pyproject(self) -> None:
@@ -229,9 +231,8 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(code, 0)
             self.assertFalse((project / "AGENTS.md").exists())
-            self.assertTrue(
-                (project / ".agents/skills/session-handoff/SKILL.md").is_file()
-            )
+            self.assertTrue((project / ".agents/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".agents/skills/handoff-resume/SKILL.md").is_file())
 
     def test_init_can_interactively_select_multiple_ai_tools(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -242,17 +243,14 @@ class CliTests(unittest.TestCase):
                 code = main(["init", str(project), "--select-tools"])
 
             self.assertEqual(code, 0)
-            self.assertTrue(
-                (project / ".agents/skills/session-handoff/SKILL.md").is_file()
-            )
+            self.assertTrue((project / ".agents/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".agents/skills/handoff-resume/SKILL.md").is_file())
             self.assertFalse((project / ".cursor/rules/handoff-memory.mdc").exists())
-            self.assertTrue(
-                (project / ".cursor/skills/session-handoff/SKILL.md").is_file()
-            )
+            self.assertTrue((project / ".cursor/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".cursor/skills/handoff-resume/SKILL.md").is_file())
             self.assertFalse((project / ".github/copilot-instructions.md").exists())
-            self.assertTrue(
-                (project / ".github/skills/session-handoff/SKILL.md").is_file()
-            )
+            self.assertTrue((project / ".github/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".github/skills/handoff-resume/SKILL.md").is_file())
             self.assertFalse((project / "CLAUDE.md").exists())
             self.assertIn("Codex", output.getvalue())
             self.assertIn("GitHub Copilot", output.getvalue())
@@ -277,7 +275,8 @@ class CliTests(unittest.TestCase):
                 code = main(["init", str(project), "--select-tools"])
 
             self.assertEqual(code, 0)
-            self.assertTrue((project / ".claude/skills/session-handoff/SKILL.md").is_file())
+            self.assertTrue((project / ".claude/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".claude/skills/handoff-resume/SKILL.md").is_file())
             self.assertFalse((project / "CLAUDE.md").exists())
             self.assertIn("无效选择", output.getvalue())
 
@@ -290,11 +289,13 @@ class CliTests(unittest.TestCase):
                 code = main(["init", str(project), "--select-tools"])
 
             self.assertEqual(code, 0)
-            self.assertTrue((project / ".agents/skills/session-handoff/SKILL.md").is_file())
-            self.assertTrue((project / ".qoder/skills/session-handoff/SKILL.md").is_file())
+            self.assertTrue((project / ".agents/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".agents/skills/handoff-resume/SKILL.md").is_file())
+            self.assertTrue((project / ".qoder/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".qoder/skills/handoff-resume/SKILL.md").is_file())
             self.assertFalse((project / ".agents/rules/handoff-memory.md").exists())
             self.assertFalse((project / ".qoder/rules/handoff-memory.md").exists())
-            self.assertIn("已更新 2 个 AI 接入文件", output.getvalue())
+            self.assertIn("已更新 4 个 AI 接入文件", output.getvalue())
 
     def test_interactive_rules_option_creates_selected_native_rules(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -330,7 +331,8 @@ class CliTests(unittest.TestCase):
             self.assertEqual(code, 0)
             content = agents.read_text(encoding="utf-8")
             self.assertIn("# 团队原有规则", content)
-            self.assertIn("使用 `session-handoff` Skill", content)
+            self.assertIn("使用 `handoff-save` Skill", content)
+            self.assertIn("使用 `handoff-resume` Skill", content)
             self.assertEqual(content.count("handoff-memory:start"), 1)
 
     def test_integrate_codex_can_create_root_rule_explicitly(self) -> None:
@@ -343,9 +345,8 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(code, 0)
             self.assertTrue((project / "AGENTS.md").is_file())
-            self.assertTrue(
-                (project / ".agents/skills/session-handoff/SKILL.md").is_file()
-            )
+            self.assertTrue((project / ".agents/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((project / ".agents/skills/handoff-resume/SKILL.md").is_file())
 
     def test_init_rules_option_supports_non_codex_target(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -442,3 +443,68 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(code, 2)
             self.assertIn("256KB", error.getvalue())
+
+    def test_help_skills_prints_global_and_status_usage(self) -> None:
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            code = main(["help", "skills"])
+
+        content = output.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("skills add claude -g", content)
+        self.assertIn("skills status .", content)
+        self.assertIn("~/.gemini/config/skills/", content)
+        self.assertIn("~/.codeium/windsurf/skills/", content)
+        self.assertIn("~/.config/opencode/skills/", content)
+
+    def test_skills_add_global_installs_only_skills_to_mocked_home(self) -> None:
+        with tempfile.TemporaryDirectory() as home_dir, tempfile.TemporaryDirectory() as project_dir:
+            fake_home = Path(home_dir).resolve()
+            project = Path(project_dir).resolve()
+            output = io.StringIO()
+
+            with patch("handoff_memory.integrations.Path.home", return_value=fake_home), redirect_stdout(output):
+                code = main(["skills", "add", "claude", "-g"])
+
+            self.assertEqual(code, 0)
+            self.assertIn("已更新 2 个用户全局 Skill 文件", output.getvalue())
+            self.assertTrue((fake_home / ".claude/skills/handoff-save/SKILL.md").is_file())
+            self.assertTrue((fake_home / ".claude/skills/handoff-resume/SKILL.md").is_file())
+            self.assertFalse((fake_home / "CLAUDE.md").exists())
+            self.assertFalse((project / ".claude").exists())
+
+    def test_skills_add_rejects_path_with_global_and_rejects_generic(self) -> None:
+        error = io.StringIO()
+        with redirect_stderr(error):
+            conflict_code = main(["skills", "add", "codex", ".", "-g"])
+        self.assertEqual(conflict_code, 2)
+        self.assertIn("不能同时指定项目路径", error.getvalue())
+
+        with redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                main(["skills", "add", "generic"])
+        self.assertEqual(raised.exception.code, 2)
+
+    def test_skills_status_json_and_legacy_warning_are_readonly(self) -> None:
+        with tempfile.TemporaryDirectory() as home_dir, tempfile.TemporaryDirectory() as project_dir:
+            fake_home = Path(home_dir).resolve()
+            project = Path(project_dir).resolve()
+            legacy = project / ".agents/skills/session-handoff/SKILL.md"
+            legacy.parent.mkdir(parents=True)
+            legacy.write_text("legacy\n", encoding="utf-8")
+
+            add_output = io.StringIO()
+            with patch("handoff_memory.integrations.Path.home", return_value=fake_home), redirect_stdout(add_output):
+                self.assertEqual(main(["skills", "add", "codex", str(project)]), 0)
+            self.assertIn("旧版 session-handoff Skill", add_output.getvalue())
+            self.assertTrue(legacy.exists())
+
+            status_output = io.StringIO()
+            with patch("handoff_memory.integrations.Path.home", return_value=fake_home), redirect_stdout(status_output):
+                self.assertEqual(main(["skills", "status", str(project), "--format", "json"]), 0)
+            payload = json.loads(status_output.getvalue())
+            self.assertEqual(payload["schema_version"], 1)
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["legacy_skills"], [str(legacy)])
+            self.assertTrue(legacy.exists())

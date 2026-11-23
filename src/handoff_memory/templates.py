@@ -74,7 +74,8 @@ GENERIC_RULE = """<!-- handoff-memory:start -->
 AGENTS_ROUTING_RULE = """<!-- handoff-memory:start -->
 ## 会话交接
 
-- 当用户要求保存会话、恢复或继续上次任务时，使用 `session-handoff` Skill。
+- 当用户明确要求保存当前会话或生成交接时，使用 `handoff-save` Skill。
+- 当用户明确要求恢复、继续、核验上次任务交接或排查历史快照时，使用 `handoff-resume` Skill。
 <!-- handoff-memory:end -->"""
 
 
@@ -103,6 +104,21 @@ description: 当用户需要保存、恢复或继续上一次有持续目标的�
 """ + GENERIC_RULE + "\n"
 
 
-SKILL_TEMPLATE = files("handoff_memory").joinpath(
-    "assets", "session-handoff", "SKILL.md"
-).read_text(encoding="utf-8")
+SKILL_NAMES = ("handoff-save", "handoff-resume")
+
+
+def _load_skill_template(name: str) -> str:
+    """从包内资源加载指定名称的 Skill 模板。"""
+    return (
+        files("handoff_memory")
+        .joinpath("assets", name, "SKILL.md")
+        .read_text(encoding="utf-8")
+    )
+
+
+SAVE_SKILL_TEMPLATE = _load_skill_template("handoff-save")
+RESUME_SKILL_TEMPLATE = _load_skill_template("handoff-resume")
+SKILL_TEMPLATES: dict[str, str] = {
+    "handoff-save": SAVE_SKILL_TEMPLATE,
+    "handoff-resume": RESUME_SKILL_TEMPLATE,
+}
