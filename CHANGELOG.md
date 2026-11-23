@@ -4,6 +4,8 @@
 
 ## [未发布]
 
+## [0.12.0] - 2026-11-23
+
 ### 新增
 
 - 新增 `hmem skills add TARGET [PATH] [-g|--global]` 与只读的 `hmem skills status [PATH]` 命令，支持将 `handoff-save` / `handoff-resume` 双 Skill 安装到 12 个主流 AI 客户端的用户级全局目录或项目级目录，并检测旧版 `session-handoff` 残留。

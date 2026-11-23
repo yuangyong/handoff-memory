@@ -4,7 +4,7 @@
 
 [中文](README.md) | [English](README.en.md)
 
-> **项目状态：Alpha（0.11.x）**
+> **项目状态：Alpha（0.12.x）**
 >
 > 正式发行包仅通过 PyPI 提供。公共 CLI 与带版本号的 JSON 输出遵循兼容性扩展原则，但 Alpha 阶段仍可能在明确迁移说明后调整边界。
 
