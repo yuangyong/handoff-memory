@@ -4,7 +4,7 @@ A local-first, cross-tool CLI for handing an ongoing task from one AI session to
 
 [中文](README.md) | [English](README.en.md)
 
-> **Status: Alpha (0.11.x)**
+> **Status: Alpha (0.12.x)**
 >
 > Official distributions are published exclusively through PyPI.
 
